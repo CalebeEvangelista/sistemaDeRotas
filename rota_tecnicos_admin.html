@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Rota AEC · Campina Grande</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+<!-- Firebase (compat build - simplest for a single static file) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<!-- SheetJS, for reading .xlsx directly in the browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root{
+    --ink:#12181F; --ink-soft:#39424D;
+    --paper:#FAF6EC; --paper-2:#F1EADA; --line:#DED4BC;
+    --navy:#0E1620; --navy-2:#182430; --navy-3:#1F2E3B;
+    --amber:#E0862B; --amber-deep:#B8611A;
+    --green:#2E8B57; --green-deep:#1F6B41;
+    --red:#C7442E;
+    --t1:#3E6FBF; --t2:#2E8B57; --t3:#B8611A; --t4:#6B5CA5;
+    --shadow: 0 18px 40px -12px rgba(10,14,20,.45);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; font-family:'Inter',sans-serif;
+    background:
+      radial-gradient(circle at 15% 8%, #1b2733 0%, transparent 45%),
+      radial-gradient(circle at 85% 92%, #17222c 0%, transparent 45%),
+      var(--navy);
+    color:var(--paper); min-height:100vh; overflow-x:hidden;
+    display:flex; flex-direction:column;
+    overscroll-behavior-y:contain;
+  }
+  .screen{
+    display:none; flex:1; flex-direction:column; min-height:100vh;
+    width:100%; max-width:560px; margin:0 auto;
+  }
+  .screen.active{ display:flex; }
+  a{ color:inherit; }
+  button, input, select{ font-family:inherit; }
+
+  /* ---------- Header ---------- */
+  .app-header{
+    padding:calc(18px + env(safe-area-inset-top)) 20px 14px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px dashed rgba(250,246,236,.18); gap:10px;
+  }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); }
+  .brand h1{ font-family:'Space Grotesk',sans-serif; font-size:19px; margin:0; font-weight:700; letter-spacing:-.01em; }
+  .header-badge{ font-family:'JetBrains Mono',monospace; font-size:12px; padding:6px 10px; border-radius:20px; background:rgba(250,246,236,.08); border:1px solid rgba(250,246,236,.16); white-space:nowrap; }
+  .icon-btn{
+    width:36px; height:36px; border-radius:10px; border:1px solid rgba(250,246,236,.16);
+    background:rgba(250,246,236,.06); color:var(--paper); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; flex-shrink:0;
+  }
+  .back-link{
+    background:none; border:none; color:#9AA3AD; font-family:'JetBrains Mono',monospace;
+    font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer; padding:4px;
+  }
+
+  /* ---------- SELECT SCREEN ---------- */
+  #select-screen{ padding:0 20px 28px; justify-content:flex-start; }
+  .select-intro{ padding:28px 0 6px; }
+  .select-intro .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:8px; }
+  .select-intro h2{ font-family:'Space Grotesk',sans-serif; font-size:26px; line-height:1.15; margin:0 0 8px; font-weight:700; }
+  .select-intro p{ margin:0; color:#AEB8C2; font-size:14.5px; line-height:1.5; max-width:38ch;}
+
+  .tech-list{ margin-top:22px; display:flex; flex-direction:column; gap:12px; padding-bottom:20px;}
+  .tech-card{
+    position:relative; background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:16px;
+    padding:16px 16px 16px 18px; display:flex; align-items:center; gap:14px; cursor:pointer;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .tech-card:active{ transform:scale(.98); }
+  .tech-card::before{ content:''; position:absolute; left:0; top:12px; bottom:12px; width:4px; border-radius:4px; background:var(--dot); }
+  .tech-card[data-t="Técnico 1"]{ --dot:var(--t1); }
+  .tech-card[data-t="Técnico 2"]{ --dot:var(--t2); }
+  .tech-card[data-t="Técnico 3"]{ --dot:var(--t3); }
+  .tech-card[data-t="Técnico 4"]{ --dot:var(--t4); }
+  .tech-avatar{
+    width:44px; height:44px; border-radius:12px; flex-shrink:0; background:var(--dot); opacity:.9;
+    display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17px; color:#0E1620;
+  }
+  .tech-info{ flex:1; min-width:0; }
+  .tech-info .name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; }
+  .tech-info .meta{ font-size:12.5px; color:#8D97A2; margin-top:3px; font-family:'JetBrains Mono',monospace; }
+  .tech-progress-ring{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:#8D97A2; border:2px solid rgba(250,246,236,.14);
+  }
+  .tech-progress-ring.done{ border-color:var(--green); color:var(--green); }
+  .admin-entry{
+    margin-top:auto; padding-top:20px; display:flex; justify-content:center;
+  }
+  .admin-entry button{
+    background:none; border:none; color:#5B6570; font-family:'JetBrains Mono',monospace; font-size:11.5px;
+    text-decoration:underline; cursor:pointer; padding:10px;
+  }
+
+  /* ---------- SWIPE SCREEN ---------- */
+  #swipe-screen{ padding:0; }
+  .progress-wrap{ padding:14px 20px 0; }
+  .progress-track{ height:6px; border-radius:6px; background:rgba(250,246,236,.1); overflow:hidden; }
+  .progress-fill{ height:100%; background:linear-gradient(90deg,var(--amber),var(--green)); width:0%; transition:width .3s ease; border-radius:6px;}
+  .progress-stats{ display:flex; justify-content:space-between; margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#8D97A2; }
+  .progress-stats b{ color:var(--paper); }
+
+  .stage{ flex:1; position:relative; padding:18px 20px 14px; display:flex; align-items:center; justify-content:center; perspective:1200px; }
+  .card-stack{ position:relative; width:100%; max-width:400px; height:min(72vh,560px); }
+  .card{
+    position:absolute; inset:0; background:var(--paper); border-radius:22px; color:var(--ink);
+    box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; touch-action:none; will-change:transform;
+  }
+  .card:nth-child(1){ z-index:5; }
+  .card:nth-child(2){ z-index:4; transform:scale(.96) translateY(10px); opacity:.85; }
+  .card:nth-child(3){ z-index:3; transform:scale(.92) translateY(18px); opacity:.6; }
+
+  .ticket-top{ background:var(--ink); color:var(--paper); padding:14px 18px; display:flex; align-items:center; justify-content:space-between; position:relative; }
+  .ticket-num{ font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.06em; color:#9AA3AD; }
+  .ticket-turno{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; padding:5px 10px; border-radius:20px; font-weight:600; }
+  .turno-Manhã{ background:#F4DDA0; color:#5C4406; }
+  .turno-Tarde{ background:#BFD9F2; color:#123A63; }
+  .turno-Noite{ background:#D6C6EE; color:#3F2464; }
+
+  .perf{ height:1px; background-image: repeating-linear-gradient(90deg, var(--line) 0 8px, transparent 8px 16px); }
+
+  .card-body{ padding:20px 20px 10px; overflow-y:auto; flex:1; }
+  .card-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; line-height:1.2; margin:0 0 4px;}
+  .card-bairro{ display:inline-flex; align-items:center; gap:5px; font-size:13px; color:var(--amber-deep); font-weight:600; margin-bottom:16px; }
+  .field{ margin-bottom:14px; }
+  .field .label{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:#9A9080; margin-bottom:3px; display:block; }
+  .field .value{ font-size:15px; line-height:1.4; color:var(--ink); }
+  .field.time .value{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:17px; color:var(--green-deep); }
+
+  .tags{ display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+  .tag{ font-size:11.5px; padding:4px 10px; border-radius:20px; background:var(--paper-2); border:1px solid var(--line); color:var(--ink-soft); }
+
+  .contact-row{ display:flex; gap:10px; margin-top:16px; }
+  .contact-btn{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:11px; border-radius:12px;
+    text-decoration:none; font-size:13px; font-weight:600; border:1px solid var(--line); color:var(--ink); background:var(--paper-2);
+  }
+  .contact-btn.wpp{ background:#DCF2E3; border-color:#B7DFC4; color:#1F6B41; }
+
+  .swipe-overlay{
+    position:absolute; top:26px; padding:8px 16px; border-radius:8px; font-family:'Space Grotesk',sans-serif; font-weight:700;
+    font-size:22px; letter-spacing:.04em; border:4px solid; transform:rotate(-18deg); opacity:0; pointer-events:none; text-transform:uppercase;
+  }
+  .swipe-overlay.accept{ right:20px; color:var(--green-deep); border-color:var(--green-deep); transform:rotate(14deg);}
+  .swipe-overlay.skip{ left:20px; color:var(--red); border-color:var(--red); transform:rotate(-14deg);}
+
+  .controls{ display:flex; align-items:center; justify-content:center; gap:22px; padding:6px 20px calc(26px + env(safe-area-inset-bottom)); }
+  .ctrl-btn{
+    width:60px; height:60px; border-radius:50%; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 22px -6px rgba(0,0,0,.5); transition:transform .12s ease;
+  }
+  .ctrl-btn:active{ transform:scale(.9); }
+  .ctrl-btn.skip{ background:var(--paper); color:var(--red); font-size:24px; }
+  .ctrl-btn.accept{ background:var(--green); color:#fff; font-size:26px; width:70px; height:70px; }
+  .ctrl-btn.undo{ background:rgba(250,246,236,.1); color:var(--paper); font-size:18px; width:48px; height:48px; border:1px solid rgba(250,246,236,.2); }
+
+  .empty-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; padding:40px 30px; color:var(--paper); }
+  .empty-state .big-check{ width:64px; height:64px; border-radius:50%; background:var(--green); display:flex; align-items:center; justify-content:center; font-size:30px; margin-bottom:6px; }
+  .empty-state h3{ font-family:'Space Grotesk',sans-serif; margin:0; font-size:20px; }
+  .empty-state p{ margin:0; color:#9AA3AD; font-size:14px; max-width:30ch; }
+  .spinner{ width:32px; height:32px; border-radius:50%; border:3px solid rgba(250,246,236,.15); border-top-color:var(--amber); animation:spin 0.8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- SUMMARY SCREEN ---------- */
+  #summary-screen{ padding:26px 20px; justify-content:flex-start; }
+  .summary-hero{ text-align:center; padding:20px 0 10px; }
+  .summary-hero .stamp{
+    display:inline-block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--green); border:3px solid var(--green); border-radius:10px; padding:6px 16px; transform:rotate(-4deg); margin-bottom:14px;
+  }
+  .summary-hero h2{ font-family:'Space Grotesk',sans-serif; font-size:24px; margin:0 0 6px; }
+  .summary-hero p{ color:#9AA3AD; font-size:14px; margin:0; }
+
+  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:24px 0; }
+  .stat-box{ background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:14px; padding:16px; text-align:center; }
+  .stat-box .n{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:26px; }
+  .stat-box .l{ font-size:11.5px; color:#8D97A2; margin-top:2px; }
+  .stat-box.accept .n{ color:var(--green); }
+  .stat-box.skip .n{ color:var(--amber); }
+
+  .skip-list{ margin-top:6px; }
+  .skip-list h4{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin:0 0 10px; }
+  .skip-item{
+    background:var(--navy-2); border-radius:12px; padding:12px 14px; margin-bottom:8px; display:flex; justify-content:space-between;
+    align-items:center; gap:10px; border:1px solid rgba(250,246,236,.08);
+  }
+  .skip-item .si-name{ font-size:13.5px; font-weight:600; }
+  .skip-item .si-bairro{ font-size:11.5px; color:#8D97A2; margin-top:2px; }
+  .skip-item button{ background:var(--amber); color:#241703; border:none; border-radius:8px; font-size:11.5px; font-weight:700; padding:7px 10px; cursor:pointer; flex-shrink:0; }
+
+  .primary-btn{
+    width:100%; padding:15px; border-radius:14px; border:none; margin-top:22px; background:var(--paper); color:var(--ink);
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  .ghost-btn{
+    width:100%; padding:13px; border-radius:14px; margin-top:10px; background:transparent; color:#9AA3AD;
+    font-family:'Inter',sans-serif; font-size:13px; border:1px solid rgba(250,246,236,.15); cursor:pointer;
+  }
+
+  /* ---------- ADMIN LOGIN ---------- */
+  #admin-login-screen{ padding:0 20px; justify-content:center; align-items:center; }
+  .login-box{ width:100%; max-width:360px; }
+  .login-box .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:8px; text-align:center; }
+  .login-box h2{ font-family:'Space Grotesk',sans-serif; font-size:24px; text-align:center; margin:0 0 26px; }
+  .field-group{ margin-bottom:14px; }
+  .field-group label{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#9AA3AD; display:block; margin-bottom:6px; }
+  .field-group input{
+    width:100%; padding:13px 14px; border-radius:12px; border:1px solid rgba(250,246,236,.18);
+    background:var(--navy-2); color:var(--paper); font-size:16px; outline:none;
+  }
+  .field-group input:focus{ border-color:var(--amber); }
+  .login-error{ color:var(--red); font-size:12.5px; margin-top:10px; min-height:16px; text-align:center; }
+  .back-to-select{ text-align:center; margin-top:20px; }
+
+  /* ---------- ADMIN DASHBOARD ---------- */
+  #admin-dash-screen{ padding:0; }
+  .dash-body{ padding:16px 20px 40px; flex:1; overflow-y:auto; }
+  .dash-section{ margin-bottom:26px; }
+  .dash-section h3{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin:0 0 12px; }
+
+  .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .kpi-box{ background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:12px; padding:12px 8px; text-align:center; }
+  .kpi-box .n{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; }
+  .kpi-box .l{ font-size:9.5px; color:#8D97A2; margin-top:2px; text-transform:uppercase; letter-spacing:.04em; }
+  .kpi-box.ok .n{ color:var(--green); }
+  .kpi-box.wait .n{ color:var(--amber); }
+  .kpi-box.no .n{ color:var(--red); }
+
+  .tech-summary-row{
+    display:flex; align-items:center; justify-content:space-between; background:var(--navy-2); border:1px solid rgba(250,246,236,.1);
+    border-radius:12px; padding:12px 14px; margin-bottom:8px;
+  }
+  .tech-summary-row .tn{ display:flex; align-items:center; gap:10px; font-weight:600; font-size:13.5px; }
+  .tech-dot{ width:10px; height:10px; border-radius:50%; }
+  .tech-summary-row .counts{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#9AA3AD; display:flex; gap:10px; }
+  .tech-summary-row .counts b.ok{ color:var(--green); }
+  .tech-summary-row .counts b.wait{ color:var(--amber); }
+  .tech-summary-row .counts b.no{ color:var(--red); }
+
+  .upload-box{
+    border:2px dashed rgba(250,246,236,.22); border-radius:16px; padding:26px 18px; text-align:center; cursor:pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .upload-box:hover, .upload-box.dragover{ border-color:var(--amber); background:rgba(224,134,43,.06); }
+  .upload-box .ic{ font-size:28px; margin-bottom:8px; }
+  .upload-box .t1{ font-weight:600; font-size:14px; margin-bottom:4px; }
+  .upload-box .t2{ font-size:12px; color:#8D97A2; }
+  #file-input{ display:none; }
+  .upload-status{ margin-top:12px; font-family:'JetBrains Mono',monospace; font-size:12px; color:#9AA3AD; white-space:pre-line; }
+  .upload-status.ok{ color:var(--green); }
+  .upload-status.err{ color:var(--red); }
+
+  .filter-row{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .filter-row select{
+    padding:9px 10px; border-radius:10px; border:1px solid rgba(250,246,236,.18); background:var(--navy-2); color:var(--paper); font-size:12.5px;
+  }
+
+  .appt-table{ display:flex; flex-direction:column; gap:6px; }
+  .appt-row{
+    background:var(--navy-2); border:1px solid rgba(250,246,236,.08); border-radius:10px; padding:10px 12px;
+    display:flex; align-items:center; gap:10px; font-size:12.5px;
+  }
+  .appt-row .status-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .status-dot.atendido{ background:var(--green); }
+  .status-dot.aguardando_atendimento{ background:var(--amber); }
+  .status-dot.nao_atendido{ background:var(--red); }
+  .appt-row .main{ flex:1; min-width:0; }
+  .appt-row .main .n{ font-weight:600; }
+  .appt-row .main .s{ color:#8D97A2; font-size:11px; margin-top:2px; }
+  .appt-row .badge{ font-family:'JetBrains Mono',monospace; font-size:10px; padding:3px 8px; border-radius:10px; background:rgba(250,246,236,.08); white-space:nowrap; }
+
+  .flag-box{
+    background:rgba(199,68,46,.1); border:1px solid rgba(199,68,46,.3); border-radius:12px; padding:12px 14px; margin-top:10px; font-size:12.5px;
+  }
+  .flag-box b{ color:#F0A090; }
+
+  /* ---------- AGENDAMENTO ---------- */
+  .agd-item{
+    background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:14px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .agd-item.sent{ border-color:rgba(46,139,87,.4); background:rgba(46,139,87,.08); }
+  .agd-item .an{ font-weight:700; font-size:14.5px; font-family:'Space Grotesk',sans-serif; }
+  .agd-item .as{ font-size:12px; color:#9AA3AD; }
+  .agd-item .as b{ color:#C9D2DB; }
+  .agd-item .aactions{ display:flex; gap:8px; margin-top:4px; align-items:center; }
+  .agd-btn{
+    flex:1; text-align:center; padding:10px; border-radius:10px; text-decoration:none; font-size:12.5px; font-weight:600;
+    border:1px solid var(--line); cursor:pointer;
+  }
+  .agd-btn.wpp{ background:#DCF2E3; border-color:#B7DFC4; color:#1F6B41; }
+  .agd-btn.sent-tag{ background:rgba(46,139,87,.18); border-color:rgba(46,139,87,.4); color:var(--green); flex:none; padding:10px 14px; }
+  .agd-item .no-phone{ font-size:11.5px; color:var(--red); font-style:italic; }
+
+  ::-webkit-scrollbar{ display:none; }
+
+  /* ---------- RESPONSIVO ---------- */
+
+  /* celulares bem estreitos (ex: iPhone SE, ~320-360px) */
+  @media (max-width:360px){
+    .kpi-grid{ grid-template-columns:repeat(2,1fr); }
+    .select-intro h2{ font-size:22px; }
+    .card-name{ font-size:19px; }
+    .ctrl-btn{ width:52px; height:52px; }
+    .ctrl-btn.accept{ width:62px; height:62px; }
+    .app-header, .select-intro, .stage, .dash-body, .login-box{ padding-left:16px; padding-right:16px; }
+  }
+
+  /* telas curtas / landscape (celular deitado) */
+  @media (max-height:560px){
+    .card-stack{ height:78vh; }
+    .card-body{ padding-top:12px; }
+    .field{ margin-bottom:9px; }
+    .select-intro{ padding-top:16px; }
+  }
+
+  /* tablets e desktop: a "tela de celular" fica centralizada, como um app real */
+  @media (min-width:640px){
+    body{
+      background:
+        radial-gradient(circle at 15% 8%, #1b2733 0%, transparent 45%),
+        radial-gradient(circle at 85% 92%, #17222c 0%, transparent 45%),
+        var(--navy);
+    }
+    .screen{
+      max-width:480px;
+      min-height:100vh;
+      box-shadow:0 0 0 1px rgba(250,246,236,.06), 0 40px 90px -30px rgba(0,0,0,.6);
+    }
+    .card-stack{ max-width:420px; }
+    #select-screen .tech-list{ padding-bottom:32px; }
+  }
+
+  /* telas bem largas: aproveita o espaço no painel admin com colunas */
+  @media (min-width:900px){
+    .screen{ max-width:900px; }
+    #admin-dash-screen .dash-body{
+      display:grid;
+      grid-template-columns:340px 1fr;
+      gap:0 32px;
+      align-content:start;
+    }
+    #admin-dash-screen .dash-section:nth-child(1),
+    #admin-dash-screen .dash-section:nth-child(2),
+    #admin-dash-screen .dash-section:nth-child(3){
+      grid-column:1;
+    }
+    #admin-dash-screen .dash-section:nth-child(4){
+      grid-column:2; grid-row:1 / span 3;
+    }
+    #swipe-screen, #select-screen, #summary-screen, #admin-login-screen{ max-width:480px; margin:0 auto; }
+  }
+
+  /* respeita quem prefere menos animação */
+  @media (prefers-reduced-motion: reduce){
+    *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== SELECT SCREEN ===================== -->
+<div class="screen active" id="select-screen">
+  <div class="app-header">
+    <div class="brand">
+      <span class="eyebrow">AEC · Campina Grande</span>
+      <h1>Fila de atendimentos</h1>
+    </div>
+  </div>
+
+  <div class="select-intro">
+    <span class="eyebrow">Selecionar técnico</span>
+    <h2>Quem tá em campo?</h2>
+    <p>Toque no seu nome pra abrir sua fila de atendimentos, na ordem que veio da planilha.</p>
+  </div>
+
+  <div class="tech-list" id="tech-list">
+    <div class="empty-state"><div class="spinner"></div></div>
+  </div>
+
+  <div class="admin-entry"><button onclick="goTo('admin-login-screen')">painel administrativo →</button></div>
+</div>
+
+<!-- ===================== SWIPE SCREEN ===================== -->
+<div class="screen" id="swipe-screen">
+  <div class="app-header">
+    <button class="back-link" onclick="goToSelect()">&larr; trocar técnico</button>
+    <div class="header-badge" id="swipe-tech-badge">—</div>
+    <button class="icon-btn" id="btn-open-agendamento" title="Mensagens de agendamento">📩</button>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="progress-stats">
+      <span>Nº <b id="stat-current">0</b> / <span id="stat-total">0</span></span>
+      <span><b id="stat-accept" style="color:var(--green)">0</b> aceitos · <b id="stat-skip" style="color:var(--amber)">0</b> pulados</span>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="card-stack" id="card-stack"></div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button class="ctrl-btn undo" id="btn-undo" title="Desfazer">↺</button>
+    <button class="ctrl-btn skip" id="btn-skip" title="Pular">✕</button>
+    <button class="ctrl-btn accept" id="btn-accept" title="Aceitar">✓</button>
+  </div>
+</div>
+
+<!-- ===================== AGENDAMENTO (envio de mensagem) ===================== -->
+<div class="screen" id="agendamento-screen">
+  <div class="app-header">
+    <button class="back-link" onclick="goTo('swipe-screen')">&larr; voltar</button>
+    <div class="header-badge" id="agendamento-tech-badge">—</div>
+  </div>
+  <div class="dash-body">
+    <div class="select-intro" style="padding-top:14px;">
+      <span class="eyebrow">Agendamento</span>
+      <h2 style="font-size:20px;">Avisar clientes da fila</h2>
+      <p>Mesma ordem e mesma lista do atendimento — só toque em enviar.</p>
+    </div>
+    <div class="progress-stats" style="margin:14px 0 6px;">
+      <span><b id="agd-sent-count">0</b> enviados</span>
+      <span><b id="agd-total-count">0</b> na fila</span>
+    </div>
+    <div id="agendamento-list" style="display:flex; flex-direction:column; gap:10px; padding-bottom:30px;">
+      <div class="empty-state"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SUMMARY SCREEN ===================== --><div class="screen" id="summary-screen">
+  <div class="summary-hero">
+    <div class="stamp">Fila concluída</div>
+    <h2 id="summary-tech-name">Técnico</h2>
+    <p>Confira o resumo do dia abaixo.</p>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-box accept"><div class="n" id="sum-accept">0</div><div class="l">Atendidos</div></div>
+    <div class="stat-box skip"><div class="n" id="sum-skip">0</div><div class="l">Não atendidos</div></div>
+  </div>
+
+  <div class="skip-list" id="skip-list-wrap" style="display:none;">
+    <h4>Não atendidos — revisar</h4>
+    <div id="skip-list"></div>
+  </div>
+
+  <button class="primary-btn" onclick="goToSelect()">Voltar pra seleção</button>
+</div>
+
+<!-- ===================== ADMIN LOGIN ===================== -->
+<div class="screen" id="admin-login-screen">
+  <div class="login-box">
+    <span class="eyebrow">Área restrita</span>
+    <h2>Painel administrativo</h2>
+    <div class="field-group">
+      <label>E-mail</label>
+      <input type="email" id="admin-email" placeholder="voce@empresa.com" autocomplete="username">
+    </div>
+    <div class="field-group">
+      <label>Senha</label>
+      <input type="password" id="admin-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="primary-btn" id="btn-admin-login">Entrar</button>
+    <div class="login-error" id="admin-login-error"></div>
+    <div class="back-to-select"><button class="back-link" style="margin:0 auto;" onclick="goToSelect()">&larr; voltar</button></div>
+  </div>
+</div>
+
+<!-- ===================== ADMIN DASHBOARD ===================== -->
+<div class="screen" id="admin-dash-screen">
+  <div class="app-header">
+    <button class="back-link" onclick="goToSelect()">&larr; sair do admin</button>
+    <button class="icon-btn" id="btn-admin-logout" title="Sair">⏻</button>
+  </div>
+  <div class="dash-body">
+
+    <div class="dash-section">
+      <h3>Visão geral</h3>
+      <div class="kpi-grid">
+        <div class="kpi-box"><div class="n" id="kpi-total">0</div><div class="l">Total</div></div>
+        <div class="kpi-box ok"><div class="n" id="kpi-ok">0</div><div class="l">Atendidos</div></div>
+        <div class="kpi-box wait"><div class="n" id="kpi-wait">0</div><div class="l">Aguardando</div></div>
+        <div class="kpi-box no"><div class="n" id="kpi-no">0</div><div class="l">Não atend.</div></div>
+      </div>
+    </div>
+
+    <div class="dash-section">
+      <h3>Por técnico</h3>
+      <div id="tech-summary-list"></div>
+    </div>
+
+    <div class="dash-section">
+      <h3>Enviar planilha (.xlsx)</h3>
+      <div class="upload-box" id="upload-box">
+        <div class="ic">📄</div>
+        <div class="t1">Toque para escolher a planilha</div>
+        <div class="t2">Precisa ter as colunas MATRICULA AEC, NOME COMPLETO, ENDEREÇO, CEP, JORNADA DE TRABALHO e <b>TÉCNICO DESIGNADO</b> (ex: "Técnico 1", "Técnico 2"...). Pode ter quantos técnicos diferentes precisar — a tela inicial se atualiza sozinha.</div>
+        <input type="file" id="file-input" accept=".xlsx,.xls">
+      </div>
+      <div class="upload-status" id="upload-status"></div>
+      <div class="flag-box" id="upload-flags" style="display:none;"></div>
+    </div>
+
+    <div class="dash-section">
+      <h3>Atendimentos do dia</h3>
+      <div class="filter-row">
+        <select id="filter-tecnico">
+          <option value="">Todos os técnicos</option>
+        </select>
+        <select id="filter-status">
+          <option value="">Todos os status</option>
+          <option value="atendido">Atendido</option>
+          <option value="aguardando_atendimento">Aguardando</option>
+          <option value="nao_atendido">Não atendido</option>
+        </select>
+      </div>
+      <div class="appt-table" id="appt-table">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   Rota AEC — Campina Grande
+   Firebase (Auth + Firestore) + leitor de planilha (SheetJS) + fila "swipe"
+   ========================================================================= */
+
+/* --------------------------------------------------------------------
+   1) CONFIGURAÇÃO DO FIREBASE
+   Cole aqui o objeto de configuração do SEU projeto (Firebase Console >
+   Configurações do projeto > Seus apps > SDK setup and configuration).
+   -------------------------------------------------------------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyDbnBhjOSs1HqajHcovOpv8qXplj_wJQQ8",
+  authDomain: "rotastecnicos-4a45c.firebaseapp.com",
+  projectId: "rotastecnicos-4a45c",
+  storageBucket: "rotastecnicos-4a45c.firebasestorage.app",
+  messagingSenderId: "452351371800",
+  appId: "1:452351371800:web:45aed88ab94eb63647716d"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const COLLECTION = "atendimentos"; // uma coleção só; documento por matrícula, sem separação por data
+
+/* --------------------------------------------------------------------
+   2) MAPA GEOGRÁFICO FIXO (bairro/zona de CEP -> técnico responsável)
+   Gerado uma vez a partir da clusterização real (lat/long). Toda planilha
+   nova é encaixada nesse mapa, então o território de cada técnico
+   permanece estável dia após dia.
+   -------------------------------------------------------------------- */
+const ZONE_INFO = {"58415": {"bairro": "Cruzeiro", "lat": -7.2492812, "lon": -35.891627199999995, "tecnico": "Técnico 2"}, "58416": {"bairro": "Santa Rosa", "lat": -7.239765900000001, "lon": -35.902389, "tecnico": "Técnico 1"}, "58417": {"bairro": "Santa Cruz", "lat": -7.2391858, "lon": -35.909883799999996, "tecnico": "Técnico 1"}, "58418": {"bairro": "Zona CEP 58418", "lat": -7.257033199999999, "lon": -35.9079051, "tecnico": "Técnico 4"}, "58419": {"bairro": "Zona CEP 58419", "lat": -7.2881281, "lon": -35.896649000000004, "tecnico": "Técnico 4"}, "58424": {"bairro": "Três Irmãs", "lat": -7.253330500000001, "lon": -35.9172662, "tecnico": "Técnico 4"}, "58414": {"bairro": "Itararé", "lat": -7.249288, "lon": -35.8929027, "tecnico": "Técnico 2"}, "58420": {"bairro": "Zona CEP 58420", "lat": -7.278353199999999, "lon": -35.910589099999996, "tecnico": "Técnico 2"}, "58421": {"bairro": "Velame", "lat": -7.2587998, "lon": -35.9130794, "tecnico": "Técnico 4"}, "58423": {"bairro": "Três Irmãs", "lat": -7.249536, "lon": -35.9150372, "tecnico": "Técnico 4"}, "58436": {"bairro": "São Januário 2 - Serrotão", "lat": -7.229972000000001, "lon": -35.948966999999996, "tecnico": "Técnico 3"}, "58441": {"bairro": "São José Da Mata", "lat": -7.178064600000001, "lon": -35.9800539, "tecnico": "Técnico 3"}, "58437": {"bairro": "Serrotão", "lat": -7.2314038, "lon": -35.8866017, "tecnico": "Técnico 1"}, "58429": {"bairro": "Zona CEP 58429", "lat": -7.219293599999999, "lon": -35.9068652, "tecnico": "Técnico 3"}, "58430": {"bairro": "Bodocongó", "lat": -7.2235077, "lon": -35.9150434, "tecnico": "Técnico 3"}, "58431": {"bairro": "Novo Bodocongó", "lat": -7.206675, "lon": -35.922041199999995, "tecnico": "Técnico 3"}, "58432": {"bairro": "Malvinas", "lat": -7.2318226999999995, "lon": -35.9181648, "tecnico": "Técnico 3"}, "58434": {"bairro": "Serrotão", "lat": -7.2334139, "lon": -35.9319049, "tecnico": "Técnico 1"}, "58446": {"bairro": "Zona CEP 58446", "lat": -7.2206167, "lon": -35.888832799999996, "tecnico": "Técnico 1"}, "58433": {"bairro": "Malvinas", "lat": -7.2331897, "lon": -35.9306978, "tecnico": "Técnico 3"}, "58428": {"bairro": "Bela Vista", "lat": -7.2150238, "lon": -35.8980112, "tecnico": "Técnico 3"}, "58412": {"bairro": "Aluizio Campos", "lat": -7.296132699999999, "lon": -35.877660299999995, "tecnico": "Técnico 2"}, "58410": {"bairro": "Catolé", "lat": -7.244844, "lon": -35.8726947, "tecnico": "Técnico 2"}, "58408": {"bairro": "Vila Cabral St", "lat": -7.2490578999999995, "lon": -35.8701757, "tecnico": "Técnico 2"}, "58407": {"bairro": "Monte Castelo", "lat": -7.2289337, "lon": -35.8687179, "tecnico": "Técnico 2"}, "58406": {"bairro": "Castelo Branco", "lat": -7.218398800000001, "lon": -35.862359, "tecnico": "Técnico 2"}, "58404": {"bairro": "Cuités", "lat": -7.1878753, "lon": -35.904088099999996, "tecnico": "Técnico 1"}, "58411": {"bairro": "Itararé", "lat": -7.2659756, "lon": -35.89068890000001, "tecnico": "Técnico 2"}, "58403": {"bairro": "Zona CEP 58403", "lat": -7.1993709, "lon": -35.8920512, "tecnico": "Técnico 3"}, "58402": {"bairro": "Jardim Tavares", "lat": -7.209646299999999, "lon": -35.8726747, "tecnico": "Técnico 2"}, "58401": {"bairro": "Conceição", "lat": -7.2064274, "lon": -35.8852885, "tecnico": "Técnico 3"}, "58400": {"bairro": "Monte Santo", "lat": -7.216057899999999, "lon": -35.904812799999995, "tecnico": "Técnico 3"}, "58449": {"bairro": "Zona CEP 58449", "lat": -7.2206167, "lon": -35.888832799999996, "tecnico": "Técnico 1"}, "58444": {"bairro": "Zona CEP 58444", "lat": -7.2206167, "lon": -35.888832799999996, "tecnico": "Técnico 1"}};
+const BASES_COORDS = {"Técnico 1": [-7.2364459, -35.893541299999995], "Técnico 2": [-7.2399058, -35.8931878], "Técnico 3": [-7.208706899999999, -35.903417499999996], "Técnico 4": [-7.367362299999999, -35.907556899999996]};
+const OUTLIER_PREFIXES = ["58343", "58320", "58150", "58115", "58700", "59680", "57410", "53418", "48410", "48400", "72052"];
+const TECH_PALETTE = ["#3E6FBF","#2E8B57","#B8611A","#6B5CA5","#C2554F","#3F8F8F","#9C8A2E","#5D6D7E","#A2477A","#4F7942","#7D5A44","#456A8F"];
+function techColor(name){
+  let hash = 0;
+  for(let i=0;i<name.length;i++) hash = (hash*31 + name.charCodeAt(i)) >>> 0;
+  return TECH_PALETTE[hash % TECH_PALETTE.length];
+}
+function techShort(name){
+  const m = String(name).match(/(\d+)/);
+  if(m) return "T"+m[1];
+  return String(name).trim().slice(0,2).toUpperCase();
+}
+function sortTechNames(names){
+  return [...names].sort((a,b)=> a.localeCompare(b, "pt", {numeric:true, sensitivity:"base"}));
+}
+
+/* --------------------------------------------------------------------
+   3) ESTADO GLOBAL
+   -------------------------------------------------------------------- */
+let state = { tech:null, queue:[], pos:0, accepted:[], skipped:[], history:[] };
+let isAdmin = false;
+let dashUnsub = null;
+
+/* --------------------------------------------------------------------
+   4) NAVEGAÇÃO ENTRE TELAS
+   -------------------------------------------------------------------- */
+function goTo(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function goToSelect(){
+  goTo("select-screen");
+  loadTechList();
+}
+
+/* --------------------------------------------------------------------
+   5) AUTENTICAÇÃO
+   Técnicos: entram anônimos (sem senha) só pra poder ler/gravar no Firestore.
+   Admin: login de verdade com e-mail e senha (criado no Firebase Console
+   em Authentication > Users).
+   -------------------------------------------------------------------- */
+function ensureAnonAuth(){
+  return new Promise((resolve)=>{
+    const unsub = auth.onAuthStateChanged(user=>{
+      if(user){ unsub(); resolve(user); }
+      else{ auth.signInAnonymously().catch(err=> console.error("auth erro", err)); }
+    });
+  });
+}
+
+document.getElementById("btn-admin-login").addEventListener("click", async ()=>{
+  const email = document.getElementById("admin-email").value.trim();
+  const pass = document.getElementById("admin-password").value;
+  const errBox = document.getElementById("admin-login-error");
+  errBox.textContent = "";
+  if(!email || !pass){ errBox.textContent = "Preencha e-mail e senha."; return; }
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+    isAdmin = true;
+    goTo("admin-dash-screen");
+    initDashboard();
+  }catch(err){
+    errBox.textContent = "E-mail ou senha inválidos.";
+  }
+});
+
+document.getElementById("btn-admin-logout").addEventListener("click", async ()=>{
+  isAdmin = false;
+  if(dashUnsub){ dashUnsub(); dashUnsub = null; }
+  await auth.signOut();
+  goToSelect();
+});
+
+/* --------------------------------------------------------------------
+   6) TELA DE SELEÇÃO DE TÉCNICO
+   -------------------------------------------------------------------- */
+async function loadTechList(){
+  const wrap = document.getElementById("tech-list");
+  wrap.innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+
+  const snap = await db.collection(COLLECTION).get();
+  const byTech = {};
+  snap.forEach(doc=>{
+    const d = doc.data();
+    if(!d.tecnico) return;
+    if(!byTech[d.tecnico]) byTech[d.tecnico] = {total:0, done:0};
+    byTech[d.tecnico].total++;
+    if(d.status !== "aguardando_atendimento") byTech[d.tecnico].done++;
+  });
+
+  const techs = sortTechNames(Object.keys(byTech));
+  wrap.innerHTML = "";
+
+  if(techs.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><p>Nenhum atendimento cadastrado ainda. Peça pro admin enviar a planilha no painel administrativo.</p></div>`;
+    return;
+  }
+
+  techs.forEach(tech=>{
+    const info = byTech[tech];
+    const pct = info.total ? Math.round((info.done/info.total)*100) : 0;
+    const color = techColor(tech);
+    const el = document.createElement("div");
+    el.className = "tech-card";
+    el.style.setProperty("--dot", color);
+    el.innerHTML = `
+      <div class="tech-avatar">${techShort(tech)}</div>
+      <div class="tech-info">
+        <div class="name">${tech}</div>
+        <div class="meta">${info.total} atendimentos hoje</div>
+      </div>
+      <div class="tech-progress-ring ${pct===100 && info.total>0 ? 'done':''}">${info.total===0?'—':(pct===100?'✓':pct+'%')}</div>
+    `;
+    el.addEventListener("click", ()=> openTech(tech));
+    wrap.appendChild(el);
+  });
+}
+
+/* --------------------------------------------------------------------
+   7) FILA DE ATENDIMENTOS DO TÉCNICO (Firestore em vez de localStorage)
+   -------------------------------------------------------------------- */
+
+// função única usada tanto pelo atendimento quanto pelo agendamento,
+// pra garantir que as duas telas SEMPRE mostrem a mesma lista, na mesma ordem.
+async function fetchPendingQueue(tech){
+  const snap = await db.collection(COLLECTION)
+    .where("tecnico","==",tech)
+    .get();
+  let items = [];
+  snap.forEach(doc=> items.push({ id: doc.id, ...doc.data() }));
+  items.sort((a,b)=> (a.ordem||0) - (b.ordem||0));
+  return items.filter(i=> i.status === "aguardando_atendimento");
+}
+
+async function openTech(tech){
+  state.tech = tech;
+  state.pos = 0;
+  state.accepted = [];
+  state.skipped = [];
+  state.history = [];
+
+  document.getElementById("swipe-tech-badge").textContent = tech;
+  goTo("swipe-screen");
+  document.getElementById("card-stack").innerHTML = `<div class="empty-state" style="position:absolute; inset:0; justify-content:center;"><div class="spinner"></div></div>`;
+
+  state.queue = await fetchPendingQueue(tech);
+  renderStage();
+}
+
+function updateProgressUI(){
+  const total = state.queue.length;
+  document.getElementById("stat-current").textContent = Math.min(state.pos+1, total);
+  document.getElementById("stat-total").textContent = total;
+  document.getElementById("stat-accept").textContent = state.accepted.length;
+  document.getElementById("stat-skip").textContent = state.skipped.length;
+  const done = state.accepted.length + state.skipped.length;
+  document.getElementById("progress-fill").style.width = total? Math.round((done/total)*100)+"%" : "0%";
+}
+
+function renderStage(){
+  updateProgressUI();
+  const stack = document.getElementById("card-stack");
+  stack.innerHTML = "";
+
+  if(state.pos >= state.queue.length){
+    document.getElementById("controls").style.display = "none";
+    stack.innerHTML = `
+      <div class="empty-state" style="position:absolute; inset:0; justify-content:center;">
+        <div class="big-check">✓</div>
+        <h3>Fila concluída</h3>
+        <p>Você passou por todos os atendimentos de ${state.tech}.</p>
+      </div>`;
+    setTimeout(()=> showSummary(), 650);
+    return;
+  }
+  document.getElementById("controls").style.display = "flex";
+
+  const visible = state.queue.slice(state.pos, state.pos+3);
+  visible.slice().reverse().forEach(item=> stack.appendChild(buildCard(item)));
+}
+
+function buildCard(item){
+  const card = document.createElement("div");
+  card.className = "card";
+  const contactRow = [];
+  if(item.whatsapp) contactRow.push(`<a class="contact-btn wpp" href="https://wa.me/${item.whatsapp}" target="_blank">💬 WhatsApp</a>`);
+  if(item.telefone2) contactRow.push(`<a class="contact-btn" href="tel:${item.telefone2}">📞 Ligar</a>`);
+  const mapsQuery = encodeURIComponent(`${item.endereco}, ${item.bairro}, ${item.cidade}, ${item.cep}`);
+
+  card.innerHTML = `
+    <div class="ticket-top">
+      <span class="ticket-num">Nº ${String(item.ordem).padStart(3,"0")}</span>
+      <span class="ticket-turno turno-${item.turno}">${item.turno}</span>
+    </div>
+    <div class="perf"></div>
+    <div class="card-body">
+      <h3 class="card-name">${item.nome}</h3>
+      <div class="card-bairro">📍 ${item.bairro} · ${item.cidade}</div>
+      ${item.cepStatus && item.cepStatus !== "valido" ? `<div class="tags" style="margin-bottom:10px;"><span class="tag" style="background:#F8CBAD; border-color:#E8A17A; color:#833C00;">⚠️ CEP a revisar</span></div>` : ""}
+      <div class="field time"><span class="label">Horário disponível</span><span class="value">${item.jornada || "—"}</span></div>
+      <div class="field"><span class="label">Endereço</span><span class="value">${item.endereco}${item.complemento? " — "+item.complemento:""}<br>CEP ${item.cep}</span></div>
+      ${item.referencia ? `<div class="field"><span class="label">Ponto de referência</span><span class="value">${item.referencia}</span></div>` : ""}
+      ${item.obs ? `<div class="field"><span class="label">Observações</span><span class="value">${item.obs}</span></div>` : ""}
+      <div class="tags">
+        ${item.produto ? `<span class="tag">Produto: ${item.produto}</span>` : ""}
+        <span class="tag">Mat. ${item.matricula}</span>
+      </div>
+      <div class="contact-row">
+        ${contactRow.join("")}
+        <a class="contact-btn" href="https://www.google.com/maps/search/?api=1&query=${mapsQuery}" target="_blank">🗺️ Mapa</a>
+      </div>
+    </div>
+    <div class="swipe-overlay accept">Aceito</div>
+    <div class="swipe-overlay skip">Pular</div>
+  `;
+  attachSwipe(card);
+  return card;
+}
+
+function attachSwipe(card){
+  let startX=0, startY=0, dx=0, dy=0, dragging=false;
+  const acceptOverlay = card.querySelector(".swipe-overlay.accept");
+  const skipOverlay = card.querySelector(".swipe-overlay.skip");
+  function isTopCard(){ return card === document.getElementById("card-stack").lastElementChild; }
+  function onStart(x,y){ if(!isTopCard()) return; dragging=true; startX=x; startY=y; card.style.transition="none"; }
+  function onMove(x,y){
+    if(!dragging) return;
+    dx = x-startX; dy = y-startY;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx/18}deg)`;
+    const p = Math.min(Math.abs(dx)/120, 1);
+    if(dx>0){ acceptOverlay.style.opacity=p; skipOverlay.style.opacity=0; }
+    else { skipOverlay.style.opacity=p; acceptOverlay.style.opacity=0; }
+  }
+  function onEnd(){
+    if(!dragging) return;
+    dragging=false; card.style.transition="transform .3s ease";
+    if(dx>110) finishSwipe(card,"accept");
+    else if(dx<-110) finishSwipe(card,"skip");
+    else{ card.style.transform="translate(0,0) rotate(0)"; acceptOverlay.style.opacity=0; skipOverlay.style.opacity=0; }
+  }
+  card.addEventListener("touchstart", e=> onStart(e.touches[0].clientX, e.touches[0].clientY), {passive:true});
+  card.addEventListener("touchmove", e=> onMove(e.touches[0].clientX, e.touches[0].clientY), {passive:true});
+  card.addEventListener("touchend", onEnd);
+  card.addEventListener("mousedown", e=> onStart(e.clientX, e.clientY));
+  window.addEventListener("mousemove", e=> onMove(e.clientX, e.clientY));
+  window.addEventListener("mouseup", onEnd);
+}
+
+function finishSwipe(card, action){
+  const item = state.queue[state.pos];
+  const flyX = action==="accept" ? window.innerWidth : -window.innerWidth;
+  const m = card.style.transform.match(/translate\([-\d.]+px,\s*([-\d.]+)px\)/);
+  const dy = m ? parseFloat(m[1]) : 0;
+  card.style.transform = `translate(${flyX}px, ${dy}px) rotate(${action==="accept"?25:-25}deg)`;
+  card.style.opacity = "0";
+
+  const newStatus = action === "accept" ? "atendido" : "nao_atendido";
+  db.collection(COLLECTION).doc(item.id).update({
+    status: newStatus,
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(err=> console.error("erro ao atualizar status", err));
+
+  if(action==="accept") state.accepted.push(item); else state.skipped.push(item);
+  state.history.push(action);
+  state.pos += 1;
+  setTimeout(renderStage, 220);
+}
+
+function programmaticSwipe(action){
+  const card = document.getElementById("card-stack").lastElementChild;
+  if(!card) return;
+  card.style.transition = "transform .3s ease";
+  finishSwipe(card, action);
+}
+document.getElementById("btn-accept").addEventListener("click", ()=> programmaticSwipe("accept"));
+document.getElementById("btn-skip").addEventListener("click", ()=> programmaticSwipe("skip"));
+document.getElementById("btn-undo").addEventListener("click", ()=>{
+  if(state.history.length===0) return;
+  const last = state.history.pop();
+  const item = last==="accept" ? state.accepted.pop() : state.skipped.pop();
+  db.collection(COLLECTION).doc(item.id).update({ status:"aguardando_atendimento" }).catch(()=>{});
+  state.pos -= 1;
+  renderStage();
+});
+
+/* --------------------------------------------------------------------
+   7b) AGENDAMENTO — mesma fila do atendimento, só clicar e mandar
+   -------------------------------------------------------------------- */
+document.getElementById("btn-open-agendamento").addEventListener("click", ()=> openAgendamento(state.tech));
+
+function agendamentoMessage(item){
+  return `Olá ${item.nome}! Aqui é da AEC 🙂 Vamos até você para o atendimento no endereço ${item.endereco}${item.bairro ? " - " + item.bairro : ""}, no horário previsto: ${item.jornada || "a combinar"}. Você confirma?`;
+}
+
+async function openAgendamento(tech){
+  document.getElementById("agendamento-tech-badge").textContent = tech;
+  goTo("agendamento-screen");
+  const listEl = document.getElementById("agendamento-list");
+  listEl.innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+
+  // mesma função, mesma lista, mesma ordem da tela de atendimento
+  const items = await fetchPendingQueue(tech);
+  renderAgendamento(items);
+}
+
+function renderAgendamento(items){
+  const listEl = document.getElementById("agendamento-list");
+  document.getElementById("agd-total-count").textContent = items.length;
+  document.getElementById("agd-sent-count").textContent = items.filter(i=>i.mensagemEnviada).length;
+
+  if(items.length === 0){
+    listEl.innerHTML = `<div class="empty-state"><p>Fila vazia — não há atendimentos pendentes pra esse técnico agora.</p></div>`;
+    return;
+  }
+
+  listEl.innerHTML = "";
+  items.forEach(item=>{
+    const el = document.createElement("div");
+    el.className = "agd-item" + (item.mensagemEnviada ? " sent" : "");
+    const msg = encodeURIComponent(agendamentoMessage(item));
+    const waLink = item.whatsapp ? `https://wa.me/${item.whatsapp}?text=${msg}` : null;
+
+    el.innerHTML = `
+      <div class="an">Nº ${String(item.ordem).padStart(3,"0")} · ${item.nome}</div>
+      <div class="as">${item.bairro||"—"} · <b>${item.jornada||"—"}</b></div>
+      <div class="as">${item.endereco}</div>
+      <div class="aactions">
+        ${waLink
+          ? (item.mensagemEnviada
+              ? `<a class="agd-btn wpp" href="${waLink}" target="_blank">💬 Reenviar</a><span class="agd-btn sent-tag">✓ Enviado</span>`
+              : `<a class="agd-btn wpp" href="${waLink}" target="_blank" data-id="${item.id}">💬 Enviar mensagem</a>`)
+          : `<span class="no-phone">Sem número de WhatsApp cadastrado</span>`}
+      </div>
+    `;
+
+    const sendBtn = el.querySelector("a[data-id]");
+    if(sendBtn){
+      sendBtn.addEventListener("click", ()=>{
+        db.collection(COLLECTION).doc(item.id).update({
+          mensagemEnviada: true,
+          mensagemEnviadaEm: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(()=>{
+          item.mensagemEnviada = true;
+          renderAgendamento(items);
+        }).catch(err=> console.error("erro ao marcar mensagem", err));
+      });
+    }
+    listEl.appendChild(el);
+  });
+}
+
+function showSummary(){
+  goTo("summary-screen");
+  document.getElementById("summary-tech-name").textContent = state.tech;
+  document.getElementById("sum-accept").textContent = state.accepted.length;
+  document.getElementById("sum-skip").textContent = state.skipped.length;
+  const wrap = document.getElementById("skip-list-wrap");
+  const list = document.getElementById("skip-list");
+  list.innerHTML = "";
+  if(state.skipped.length){
+    wrap.style.display = "block";
+    state.skipped.forEach(item=>{
+      const el = document.createElement("div");
+      el.className = "skip-item";
+      el.innerHTML = `<div><div class="si-name">${item.nome}</div><div class="si-bairro">${item.bairro} · ${item.jornada}</div></div>`;
+      list.appendChild(el);
+    });
+  } else wrap.style.display = "none";
+}
+
+/* --------------------------------------------------------------------
+   8) PAINEL ADMIN — dashboard do dia
+   -------------------------------------------------------------------- */
+function initDashboard(){
+  loadDashboard();
+}
+
+document.getElementById("filter-tecnico").addEventListener("change", loadDashboard);
+document.getElementById("filter-status").addEventListener("change", loadDashboard);
+
+async function loadDashboard(){
+  if(dashUnsub){ dashUnsub(); dashUnsub = null; }
+  const tableWrap = document.getElementById("appt-table");
+  tableWrap.innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+
+  dashUnsub = db.collection(COLLECTION)
+    .onSnapshot(snap=>{
+      const rows = [];
+      snap.forEach(doc=> rows.push({id:doc.id, ...doc.data()}));
+      renderDashboard(rows);
+    }, err=>{
+      tableWrap.innerHTML = `<div class="flag-box">Erro ao carregar dados: ${err.message}</div>`;
+    });
+}
+
+function renderDashboard(rows){
+  const kAll=rows.length, kOk=rows.filter(r=>r.status==="atendido").length,
+        kWait=rows.filter(r=>r.status==="aguardando_atendimento").length,
+        kNo=rows.filter(r=>r.status==="nao_atendido").length;
+  document.getElementById("kpi-total").textContent = kAll;
+  document.getElementById("kpi-ok").textContent = kOk;
+  document.getElementById("kpi-wait").textContent = kWait;
+  document.getElementById("kpi-no").textContent = kNo;
+
+  const techsPresent = sortTechNames([...new Set(rows.map(r=>r.tecnico).filter(Boolean))]);
+
+  const techList = document.getElementById("tech-summary-list");
+  techList.innerHTML = "";
+  if(techsPresent.length === 0){
+    techList.innerHTML = `<div class="empty-state"><p>Nenhum técnico com atendimentos nesta data ainda.</p></div>`;
+  }
+  techsPresent.forEach(t=>{
+    const trows = rows.filter(r=>r.tecnico===t);
+    const ok = trows.filter(r=>r.status==="atendido").length;
+    const wait = trows.filter(r=>r.status==="aguardando_atendimento").length;
+    const no = trows.filter(r=>r.status==="nao_atendido").length;
+    const el = document.createElement("div");
+    el.className = "tech-summary-row";
+    el.innerHTML = `
+      <div class="tn"><span class="tech-dot" style="background:${techColor(t)}"></span>${t}</div>
+      <div class="counts"><span>${trows.length} total</span><b class="ok">${ok} ✓</b><b class="wait">${wait} ⏳</b><b class="no">${no} ✕</b></div>
+    `;
+    techList.appendChild(el);
+  });
+
+  // mantém a seleção atual do filtro ao repopular as opções
+  const filterSel = document.getElementById("filter-tecnico");
+  const currentSel = filterSel.value;
+  filterSel.innerHTML = `<option value="">Todos os técnicos</option>` +
+    techsPresent.map(t=> `<option value="${t}">${t}</option>`).join("");
+  if(techsPresent.includes(currentSel)) filterSel.value = currentSel;
+
+  const fTech = document.getElementById("filter-tecnico").value;
+  const fStatus = document.getElementById("filter-status").value;
+  let filtered = rows;
+  if(fTech) filtered = filtered.filter(r=>r.tecnico===fTech);
+  if(fStatus) filtered = filtered.filter(r=>r.status===fStatus);
+  filtered.sort((a,b)=> (a.tecnico||"").localeCompare(b.tecnico||"") || (a.ordem||0)-(b.ordem||0));
+
+  const tableWrap = document.getElementById("appt-table");
+  tableWrap.innerHTML = "";
+  if(filtered.length === 0){
+    tableWrap.innerHTML = `<div class="empty-state"><p>Nenhum atendimento encontrado com esse filtro.</p></div>`;
+    return;
+  }
+  const statusLabel = {atendido:"Atendido", aguardando_atendimento:"Aguardando", nao_atendido:"Não atendido"};
+  filtered.forEach(r=>{
+    const el = document.createElement("div");
+    el.className = "appt-row";
+    el.innerHTML = `
+      <span class="status-dot ${r.status}"></span>
+      <div class="main">
+        <div class="n">${r.nome}</div>
+        <div class="s">${r.bairro||"—"} · ${r.tecnico||"—"} · ${r.jornada||""}</div>
+      </div>
+      <span class="badge">${statusLabel[r.status]||r.status}</span>
+    `;
+    tableWrap.appendChild(el);
+  });
+}
+
+/* --------------------------------------------------------------------
+   9) UPLOAD E PROCESSAMENTO DE PLANILHA (.xlsx) — feito no navegador
+   -------------------------------------------------------------------- */
+const HEADER_MAP = {
+  matricula: ["MATRICULA AEC"],
+  nome: ["NOME COMPLETO"],
+  whatsapp: ["( WHATSAPP)", "WHATSAPP"],
+  telefone2: ["2º TELEFONE", "2O TELEFONE", "TELEFONE 2"],
+  jornada: ["JORNADA DE TRABALHO"],
+  endereco: ["ENDEREÇO ( RUA, AVENIDA, SITIO)", "ENDERECO ( RUA, AVENIDA, SITIO)", "ENDEREÇO"],
+  numero: ["NÚMERO ", "NUMERO ", "NÚMERO", "NUMERO"],
+  bairro: ["BAIRRO"],
+  complemento: ["COMPLEMENTO ( CASA, NÚMERO DO APARTAMENTO)", "COMPLEMENTO"],
+  referencia: ["PONTO DE REFERENCIA", "PONTO DE REFERÊNCIA"],
+  cidade: ["CIDADE"],
+  cep: ["CEP"],
+  produto: ["PRODUTO CLIENTE"],
+  obs: ["OBSERVAÇÕES:", "OBSERVACOES:", "OBSERVAÇÕES", "OBSERVACOES"],
+  tecnico: ["TÉCNICO DESIGNADO", "TECNICO DESIGNADO", "TÉCNICO", "TECNICO", "TÉCNICO RESPONSÁVEL", "TECNICO RESPONSAVEL"],
+};
+
+function normHeader(h){ return String(h||"").trim().toUpperCase(); }
+
+function buildHeaderIndex(headerRow){
+  const idx = {};
+  const normed = headerRow.map(normHeader);
+  Object.keys(HEADER_MAP).forEach(key=>{
+    for(const candidate of HEADER_MAP[key]){
+      const pos = normed.indexOf(normHeader(candidate));
+      if(pos !== -1){ idx[key] = pos; break; }
+    }
+  });
+  return idx;
+}
+
+function cleanCep(v){
+  if(v===null || v===undefined) return null;
+  const digits = String(v).replace(/[^0-9]/g,"");
+  return digits.length===8 ? digits : null;
+}
+
+function parseStartMinutes(jornada){
+  if(jornada===null || jornada===undefined || jornada==="") return 9999;
+  if(typeof jornada === "number") return Math.round(jornada*24*60);
+  const s = String(jornada).trim().toLowerCase();
+  let m = s.match(/(\d{1,2}):(\d{2})/);
+  if(m) return parseInt(m[1])*60 + parseInt(m[2]);
+  m = s.match(/(\d{1,2})h(\d{2})?/);
+  if(m) return parseInt(m[1])*60 + (m[2]?parseInt(m[2]):0);
+  m = s.match(/(\d{1,2})/);
+  if(m) return parseInt(m[1])*60;
+  return 9999;
+}
+function turnoFromMinutes(mins){
+  const h = Math.floor(mins/60);
+  if(h < 12) return "Manhã";
+  if(h < 18) return "Tarde";
+  return "Noite";
+}
+function phoneDigits(v){
+  if(!v) return "";
+  let d = String(v).replace(/[^0-9]/g,"");
+  if(d && !d.startsWith("55")) d = "55"+d;
+  return d;
+}
+function haversine(a,b){
+  const R=6371, toRad = x=>x*Math.PI/180;
+  const dphi = toRad(b[0]-a[0]), dlmb = toRad(b[1]-a[1]);
+  const p1=toRad(a[0]), p2=toRad(b[0]);
+  const h = Math.sin(dphi/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dlmb/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+
+function classifyCep(cepRaw){
+  const cep = cleanCep(cepRaw);
+  if(!cep) return { status:"invalido", cep:null, p5:null };
+  const p5 = cep.slice(0,5);
+  if(OUTLIER_PREFIXES.includes(p5)) return { status:"fora_area", cep, p5 };
+  return { status:"valido", cep, p5 };
+}
+
+function normalizeTecnico(raw){
+  if(!raw) return "";
+  const s = String(raw).trim();
+  if(!s) return "";
+  const m = s.match(/^t[ée]cnico\s*0*(\d+)$/i);
+  if(m) return `Técnico ${m[1]}`;
+  return s;
+}
+
+function readSheet(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const wb = XLSX.read(e.target.result, {type:"array", cellDates:false});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:true, defval:null});
+        resolve(rows);
+      }catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function handleUploadedFile(file){
+  const statusEl = document.getElementById("upload-status");
+  const flagsEl = document.getElementById("upload-flags");
+  flagsEl.style.display = "none";
+  statusEl.className = "upload-status";
+  statusEl.textContent = "Lendo planilha...";
+
+  let rows;
+  try{ rows = await readSheet(file); }
+  catch(err){ statusEl.className="upload-status err"; statusEl.textContent = "Não consegui ler o arquivo: "+err.message; return; }
+
+  if(!rows || rows.length < 2){ statusEl.className="upload-status err"; statusEl.textContent = "Planilha vazia ou sem dados."; return; }
+
+  const headerIdx = buildHeaderIndex(rows[0]);
+  const required = ["matricula","nome","endereco","tecnico"];
+  const missing = required.filter(k=> headerIdx[k]===undefined);
+  if(missing.length){
+    statusEl.className="upload-status err";
+    statusEl.textContent = "Não encontrei estas colunas na planilha: "+missing.join(", ")+". Adicione uma coluna \"TÉCNICO DESIGNADO\" com o nome do técnico (ex: Técnico 1, Técnico 2...).";
+    return;
+  }
+
+  const dataRows = rows.slice(1).filter(r=> r && r.some(v=> v!==null && v!==""));
+  statusEl.textContent = `Processando ${dataRows.length} linhas...`;
+
+  const parsed = [];
+  let nSemDados=0, nSemTecnico=0, nCepInvalido=0, nCepForaArea=0;
+
+  dataRows.forEach(r=>{
+    const get = (k)=> headerIdx[k]!==undefined ? r[headerIdx[k]] : null;
+    const cell = {
+      matricula: get("matricula"), nome: get("nome"), whatsapp: get("whatsapp"),
+      telefone2: get("telefone2"), jornada: get("jornada"), endereco: get("endereco"),
+      numero: get("numero"), bairroRaw: get("bairro"), complemento: get("complemento"),
+      referencia: get("referencia"), cidade: get("cidade") || "Campina Grande",
+      cep: get("cep"), produto: get("produto"), obs: get("obs"), tecnicoRaw: get("tecnico"),
+    };
+    if(!cell.matricula || !cell.nome || !cell.endereco){ nSemDados++; return; }
+
+    const tecnico = normalizeTecnico(cell.tecnicoRaw);
+    if(!tecnico){ nSemTecnico++; return; }
+
+    const clsCep = classifyCep(cell.cep);
+    if(clsCep.status === "invalido") nCepInvalido++;
+    if(clsCep.status === "fora_area") nCepForaArea++;
+
+    const zoneBairro = clsCep.p5 && ZONE_INFO[clsCep.p5] ? ZONE_INFO[clsCep.p5].bairro : null;
+    const bairro = (cell.bairroRaw && String(cell.bairroRaw).trim()) || zoneBairro || "Bairro não informado";
+    const cepDisplay = clsCep.cep ? clsCep.cep.slice(0,5)+"-"+clsCep.cep.slice(5) : (cell.cep? String(cell.cep).trim() : "");
+
+    const mins = parseStartMinutes(cell.jornada);
+    const turno = turnoFromMinutes(mins);
+
+    parsed.push({
+      matricula: String(cell.matricula).trim(),
+      nome: String(cell.nome).trim(),
+      whatsapp: phoneDigits(cell.whatsapp),
+      telefone2: phoneDigits(cell.telefone2),
+      jornada: cell.jornada ? String(cell.jornada).trim() : "",
+      endereco: cell.numero ? `${String(cell.endereco).trim()}, ${String(cell.numero).trim()}` : String(cell.endereco).trim(),
+      complemento: cell.complemento ? String(cell.complemento).trim() : "",
+      referencia: cell.referencia ? String(cell.referencia).trim() : "",
+      bairro, cidade: String(cell.cidade).trim(), cep: cepDisplay, cepStatus: clsCep.status,
+      produto: cell.produto ? String(cell.produto).trim() : "",
+      obs: cell.obs ? String(cell.obs).trim() : "",
+      turno, mins, tecnico,
+    });
+  });
+
+  // mantém a ordem exata em que as linhas vieram na planilha (por técnico)
+  const orderCounter = {};
+  parsed.forEach(p=>{
+    orderCounter[p.tecnico] = (orderCounter[p.tecnico]||0) + 1;
+    p.ordem = orderCounter[p.tecnico];
+  });
+
+  statusEl.textContent = `Salvando ${parsed.length} atendimentos no Firebase...`;
+
+  try{
+    await upsertToFirestore(parsed);
+  }catch(err){
+    statusEl.className="upload-status err";
+    statusEl.textContent = "Erro ao salvar no Firebase: "+err.message;
+    return;
+  }
+
+  statusEl.className = "upload-status ok";
+  statusEl.textContent = `Pronto! ${parsed.length} atendimentos processados e salvos.`;
+
+  if(nSemDados || nSemTecnico || nCepInvalido || nCepForaArea){
+    flagsEl.style.display = "block";
+    flagsEl.innerHTML =
+      (nSemDados? `<div><b>${nSemDados}</b> linha(s) sem matrícula/nome/endereço — não foram salvas.</div>`:"") +
+      (nSemTecnico? `<div><b>${nSemTecnico}</b> linha(s) sem técnico designado na coluna — não foram salvas.</div>`:"") +
+      (nCepInvalido? `<div><b>${nCepInvalido}</b> linha(s) com CEP inválido — foram salvas mesmo assim, mas vale corrigir o CEP.</div>`:"") +
+      (nCepForaArea? `<div><b>${nCepForaArea}</b> linha(s) com CEP de fora de Campina Grande — foram salvas mesmo assim, vale conferir o endereço.</div>`:"");
+  }
+
+  loadDashboard();
+}
+
+async function upsertToFirestore(parsedRows){
+  // busca o que já existe pra não perder o status de quem já foi atendido
+  const existingSnap = await db.collection(COLLECTION).get();
+  const existingByMatricula = {};
+  existingSnap.forEach(doc=> existingByMatricula[doc.data().matricula] = {id:doc.id, ...doc.data()});
+
+  // Firestore limita 500 operações por batch
+  const chunks = [];
+  for(let i=0;i<parsedRows.length;i+=400) chunks.push(parsedRows.slice(i,i+400));
+
+  for(const chunk of chunks){
+    const batch = db.batch();
+    chunk.forEach(row=>{
+      const existing = existingByMatricula[row.matricula];
+      const docId = existing ? existing.id : row.matricula;
+      const ref = db.collection(COLLECTION).doc(docId);
+      const status = existing ? existing.status : "aguardando_atendimento";
+      batch.set(ref, { ...row, status, criadoEm: existing ? existing.criadoEm||null : firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
+    });
+    await batch.commit();
+  }
+}
+
+const uploadBox = document.getElementById("upload-box");
+const fileInput = document.getElementById("file-input");
+uploadBox.addEventListener("click", ()=> fileInput.click());
+fileInput.addEventListener("change", (e)=>{ if(e.target.files[0]) handleUploadedFile(e.target.files[0]); });
+["dragover","dragleave","drop"].forEach(evt=>{
+  uploadBox.addEventListener(evt, (e)=>{
+    e.preventDefault();
+    if(evt==="dragover") uploadBox.classList.add("dragover");
+    else uploadBox.classList.remove("dragover");
+    if(evt==="drop" && e.dataTransfer.files[0]) handleUploadedFile(e.dataTransfer.files[0]);
+  });
+});
+
+/* --------------------------------------------------------------------
+   10) INICIALIZAÇÃO
+   -------------------------------------------------------------------- */
+(async function init(){
+  await ensureAnonAuth();
+  loadTechList();
+})();
+
+</script>
+</body>
+</html>
