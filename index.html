@@ -114,16 +114,6 @@
   .progress-stats{ display:flex; justify-content:space-between; margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#8D97A2; }
   .progress-stats b{ color:var(--paper); }
 
-  .stage{ flex:1; position:relative; padding:18px 20px 14px; display:flex; align-items:center; justify-content:center; perspective:1200px; }
-  .card-stack{ position:relative; width:100%; max-width:400px; height:min(72vh,560px); }
-  .card{
-    position:absolute; inset:0; background:var(--paper); border-radius:22px; color:var(--ink);
-    box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; touch-action:none; will-change:transform;
-  }
-  .card:nth-child(1){ z-index:5; }
-  .card:nth-child(2){ z-index:4; transform:scale(.96) translateY(10px); opacity:.85; }
-  .card:nth-child(3){ z-index:3; transform:scale(.92) translateY(18px); opacity:.6; }
-
   .ticket-top{ background:var(--ink); color:var(--paper); padding:14px 18px; display:flex; align-items:center; justify-content:space-between; position:relative; }
   .ticket-num{ font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.06em; color:#9AA3AD; }
   .ticket-turno{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; padding:5px 10px; border-radius:20px; font-weight:600; }
@@ -150,23 +140,7 @@
     text-decoration:none; font-size:13px; font-weight:600; border:1px solid var(--line); color:var(--ink); background:var(--paper-2);
   }
   .contact-btn.wpp{ background:#DCF2E3; border-color:#B7DFC4; color:#1F6B41; }
-
-  .swipe-overlay{
-    position:absolute; top:26px; padding:8px 16px; border-radius:8px; font-family:'Space Grotesk',sans-serif; font-weight:700;
-    font-size:22px; letter-spacing:.04em; border:4px solid; transform:rotate(-18deg); opacity:0; pointer-events:none; text-transform:uppercase;
-  }
-  .swipe-overlay.accept{ right:20px; color:var(--green-deep); border-color:var(--green-deep); transform:rotate(14deg);}
-  .swipe-overlay.skip{ left:20px; color:var(--red); border-color:var(--red); transform:rotate(-14deg);}
-
-  .controls{ display:flex; align-items:center; justify-content:center; gap:22px; padding:6px 20px calc(26px + env(safe-area-inset-bottom)); }
-  .ctrl-btn{
-    width:60px; height:60px; border-radius:50%; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
-    box-shadow:0 10px 22px -6px rgba(0,0,0,.5); transition:transform .12s ease;
-  }
-  .ctrl-btn:active{ transform:scale(.9); }
-  .ctrl-btn.skip{ background:var(--paper); color:var(--red); font-size:24px; }
-  .ctrl-btn.accept{ background:var(--green); color:#fff; font-size:26px; width:70px; height:70px; }
-  .ctrl-btn.undo{ background:rgba(250,246,236,.1); color:var(--paper); font-size:18px; width:48px; height:48px; border:1px solid rgba(250,246,236,.2); }
+  .contact-btn.disabled{ opacity:.5; pointer-events:none; }
 
   .empty-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; padding:40px 30px; color:var(--paper); }
   .empty-state .big-check{ width:64px; height:64px; border-radius:50%; background:var(--green); display:flex; align-items:center; justify-content:center; font-size:30px; margin-bottom:6px; }
@@ -175,32 +149,60 @@
   .spinner{ width:32px; height:32px; border-radius:50%; border:3px solid rgba(250,246,236,.15); border-top-color:var(--amber); animation:spin 0.8s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
-  /* ---------- SUMMARY SCREEN ---------- */
-  #summary-screen{ padding:26px 20px; justify-content:flex-start; }
-  .summary-hero{ text-align:center; padding:20px 0 10px; }
-  .summary-hero .stamp{
-    display:inline-block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.08em;
-    text-transform:uppercase; color:var(--green); border:3px solid var(--green); border-radius:10px; padding:6px 16px; transform:rotate(-4deg); margin-bottom:14px;
+  /* ---------- LISTA DE LEMBRETES ---------- */
+  .lembrete-list{ display:flex; flex-direction:column; gap:10px; }
+  .lembrete-item{
+    background:var(--paper); color:var(--ink); border-radius:16px; overflow:hidden; box-shadow:0 6px 16px -8px rgba(0,0,0,.4);
   }
-  .summary-hero h2{ font-family:'Space Grotesk',sans-serif; font-size:24px; margin:0 0 6px; }
-  .summary-hero p{ color:#9AA3AD; font-size:14px; margin:0; }
-
-  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:24px 0; }
-  .stat-box{ background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:14px; padding:16px; text-align:center; }
-  .stat-box .n{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:26px; }
-  .stat-box .l{ font-size:11.5px; color:#8D97A2; margin-top:2px; }
-  .stat-box.accept .n{ color:var(--green); }
-  .stat-box.skip .n{ color:var(--amber); }
-
-  .skip-list{ margin-top:6px; }
-  .skip-list h4{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin:0 0 10px; }
-  .skip-item{
-    background:var(--navy-2); border-radius:12px; padding:12px 14px; margin-bottom:8px; display:flex; justify-content:space-between;
-    align-items:center; gap:10px; border:1px solid rgba(250,246,236,.08);
+  .lembrete-header{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; cursor:pointer; user-select:none;
   }
-  .skip-item .si-name{ font-size:13.5px; font-weight:600; }
-  .skip-item .si-bairro{ font-size:11.5px; color:#8D97A2; margin-top:2px; }
-  .skip-item button{ background:var(--amber); color:#241703; border:none; border-radius:8px; font-size:11.5px; font-weight:700; padding:7px 10px; cursor:pointer; flex-shrink:0; }
+  .lembrete-header .lh-info{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .lembrete-header .lh-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lembrete-header .lh-sub{ font-size:12px; color:var(--ink-soft); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .lembrete-header .lh-chevron{ font-size:13px; color:#9A9080; transition:transform .2s ease; flex-shrink:0; }
+  .lembrete-item.expanded .lh-chevron{ transform:rotate(180deg); }
+  .lembrete-details{ display:none; padding:0 16px 18px; border-top:1px dashed var(--line); }
+  .lembrete-item.expanded .lembrete-details{ display:block; padding-top:14px; }
+
+  .lembrete-actions{ display:flex; gap:8px; margin-top:16px; }
+  .act-btn{
+    flex:1; padding:12px 6px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:12.5px;
+    display:flex; flex-direction:column; align-items:center; gap:3px; font-family:'Inter',sans-serif;
+  }
+  .act-btn .ic{ font-size:18px; }
+  .act-btn.confirm{ background:var(--green); color:#fff; }
+  .act-btn.skip{ background:#F4DDA0; color:#5C4406; }
+  .act-btn.refuse{ background:#F2C6C2; color:#7A2B24; }
+
+  .status-pill{
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em; text-transform:uppercase; font-weight:700;
+    padding:4px 9px; border-radius:20px; flex-shrink:0;
+  }
+  .status-pill.aguardando_atendimento{ background:var(--paper-2); color:var(--ink-soft); border:1px solid var(--line); }
+  .status-pill.atendido{ background:#DCF2E3; color:#1F6B41; }
+  .status-pill.nao_atendido{ background:#F4DDA0; color:#5C4406; }
+  .status-pill.recusado{ background:#F2C6C2; color:#7A2B24; }
+
+  /* ---------- MODAL DE CONFIRMAÇÃO ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,14,20,.72); display:none; align-items:flex-end; justify-content:center; z-index:80;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{
+    width:100%; max-width:480px; background:var(--paper); color:var(--ink); border-radius:20px 20px 0 0; padding:22px 20px calc(22px + env(safe-area-inset-bottom));
+    animation:modal-up .22s ease;
+  }
+  @keyframes modal-up{ from{ transform:translateY(24px); opacity:0; } to{ transform:translateY(0); opacity:1; } }
+  .modal-box h4{ font-family:'Space Grotesk',sans-serif; font-size:18px; margin:0 0 8px; }
+  .modal-box p{ font-size:14px; color:var(--ink-soft); margin:0 0 4px; line-height:1.4; }
+  .modal-options{ display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .modal-options button{
+    width:100%; padding:14px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:14px;
+    background:var(--ink); color:var(--paper); font-family:'Inter',sans-serif; text-align:left;
+  }
+  .modal-options button.primary{ background:var(--green); color:#fff; }
+  .modal-options button.danger{ background:#C2554F; color:#fff; }
 
   .primary-btn{
     width:100%; padding:15px; border-radius:14px; border:none; margin-top:22px; background:var(--paper); color:var(--ink);
@@ -232,13 +234,14 @@
   .dash-section{ margin-bottom:26px; }
   .dash-section h3{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); margin:0 0 12px; }
 
-  .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-  .kpi-box{ background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:12px; padding:12px 8px; text-align:center; }
+  .kpi-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .kpi-box{ background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:12px; padding:12px 6px; text-align:center; }
   .kpi-box .n{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; }
   .kpi-box .l{ font-size:9.5px; color:#8D97A2; margin-top:2px; text-transform:uppercase; letter-spacing:.04em; }
   .kpi-box.ok .n{ color:var(--green); }
   .kpi-box.wait .n{ color:var(--amber); }
   .kpi-box.no .n{ color:var(--red); }
+  .kpi-box.refuse .n{ color:#C2554F; }
 
   .tech-summary-row{
     display:flex; align-items:center; justify-content:space-between; background:var(--navy-2); border:1px solid rgba(250,246,236,.1);
@@ -278,6 +281,7 @@
   .status-dot.atendido{ background:var(--green); }
   .status-dot.aguardando_atendimento{ background:var(--amber); }
   .status-dot.nao_atendido{ background:var(--red); }
+  .status-dot.recusado{ background:#C2554F; }
   .appt-row .main{ flex:1; min-width:0; }
   .appt-row .main .n{ font-weight:600; }
   .appt-row .main .s{ color:#8D97A2; font-size:11px; margin-top:2px; }
@@ -312,17 +316,14 @@
 
   /* celulares bem estreitos (ex: iPhone SE, ~320-360px) */
   @media (max-width:360px){
-    .kpi-grid{ grid-template-columns:repeat(2,1fr); }
+    .kpi-grid{ grid-template-columns:repeat(3,1fr); }
     .select-intro h2{ font-size:22px; }
     .card-name{ font-size:19px; }
-    .ctrl-btn{ width:52px; height:52px; }
-    .ctrl-btn.accept{ width:62px; height:62px; }
-    .app-header, .select-intro, .stage, .dash-body, .login-box{ padding-left:16px; padding-right:16px; }
+    .app-header, .select-intro, .dash-body, .login-box{ padding-left:16px; padding-right:16px; }
   }
 
   /* telas curtas / landscape (celular deitado) */
   @media (max-height:560px){
-    .card-stack{ height:78vh; }
     .card-body{ padding-top:12px; }
     .field{ margin-bottom:9px; }
     .select-intro{ padding-top:16px; }
@@ -341,7 +342,6 @@
       min-height:100vh;
       box-shadow:0 0 0 1px rgba(250,246,236,.06), 0 40px 90px -30px rgba(0,0,0,.6);
     }
-    .card-stack{ max-width:420px; }
     #select-screen .tech-list{ padding-bottom:32px; }
   }
 
@@ -362,7 +362,7 @@
     #admin-dash-screen .dash-section:nth-child(4){
       grid-column:2; grid-row:1 / span 3;
     }
-    #swipe-screen, #select-screen, #summary-screen, #admin-login-screen{ max-width:480px; margin:0 auto; }
+    #swipe-screen, #select-screen, #admin-login-screen{ max-width:480px; margin:0 auto; }
   }
 
   /* respeita quem prefere menos animação */
@@ -395,7 +395,7 @@
   <div class="admin-entry"><button onclick="goTo('admin-login-screen')">painel administrativo →</button></div>
 </div>
 
-<!-- ===================== SWIPE SCREEN ===================== -->
+<!-- ===================== TELA DE LEMBRETES (lista de atendimentos) ===================== -->
 <div class="screen" id="swipe-screen">
   <div class="app-header">
     <button class="back-link" onclick="goToSelect()">&larr; trocar técnico</button>
@@ -406,19 +406,30 @@
   <div class="progress-wrap">
     <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
     <div class="progress-stats">
-      <span>Nº <b id="stat-current">0</b> / <span id="stat-total">0</span></span>
-      <span><b id="stat-accept" style="color:var(--green)">0</b> aceitos · <b id="stat-skip" style="color:var(--amber)">0</b> pulados</span>
+      <span><b id="stat-pending">0</b> aguardando</span>
+      <span><b id="stat-accept" style="color:var(--green)">0</b> atendidos · <b id="stat-skip" style="color:var(--amber)">0</b> pulados · <b id="stat-refuse" style="color:#C2554F">0</b> recusados</span>
     </div>
   </div>
 
-  <div class="stage" id="stage">
-    <div class="card-stack" id="card-stack"></div>
-  </div>
+  <div class="dash-body" style="padding-top:14px;">
+    <div class="dash-section">
+      <h3>Atendimentos de hoje</h3>
+      <div id="lembrete-list" class="lembrete-list">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
 
-  <div class="controls" id="controls">
-    <button class="ctrl-btn undo" id="btn-undo" title="Desfazer">↺</button>
-    <button class="ctrl-btn skip" id="btn-skip" title="Pular">✕</button>
-    <button class="ctrl-btn accept" id="btn-accept" title="Aceitar">✓</button>
+    <button class="ghost-btn" style="width:100%; margin-top:6px;" onclick="goToSelect()">&larr; Voltar pra seleção</button>
+  </div>
+</div>
+
+<!-- ===================== MODAL DE CONFIRMAÇÃO ===================== -->
+<div class="modal-overlay" id="action-modal">
+  <div class="modal-box">
+    <h4 id="modal-title">—</h4>
+    <p id="modal-text"></p>
+    <div id="modal-options" class="modal-options"></div>
+    <button class="ghost-btn" id="modal-cancel" style="margin-top:14px;">Cancelar</button>
   </div>
 </div>
 
@@ -442,26 +453,6 @@
       <div class="empty-state"><div class="spinner"></div></div>
     </div>
   </div>
-</div>
-
-<!-- ===================== SUMMARY SCREEN ===================== --><div class="screen" id="summary-screen">
-  <div class="summary-hero">
-    <div class="stamp">Fila concluída</div>
-    <h2 id="summary-tech-name">Técnico</h2>
-    <p>Confira o resumo do dia abaixo.</p>
-  </div>
-
-  <div class="stat-grid">
-    <div class="stat-box accept"><div class="n" id="sum-accept">0</div><div class="l">Atendidos</div></div>
-    <div class="stat-box skip"><div class="n" id="sum-skip">0</div><div class="l">Não atendidos</div></div>
-  </div>
-
-  <div class="skip-list" id="skip-list-wrap" style="display:none;">
-    <h4>Não atendidos — revisar</h4>
-    <div id="skip-list"></div>
-  </div>
-
-  <button class="primary-btn" onclick="goToSelect()">Voltar pra seleção</button>
 </div>
 
 <!-- ===================== ADMIN LOGIN ===================== -->
@@ -498,6 +489,7 @@
         <div class="kpi-box ok"><div class="n" id="kpi-ok">0</div><div class="l">Atendidos</div></div>
         <div class="kpi-box wait"><div class="n" id="kpi-wait">0</div><div class="l">Aguardando</div></div>
         <div class="kpi-box no"><div class="n" id="kpi-no">0</div><div class="l">Não atend.</div></div>
+        <div class="kpi-box refuse"><div class="n" id="kpi-refuse">0</div><div class="l">Recusados</div></div>
       </div>
     </div>
 
@@ -529,6 +521,7 @@
           <option value="atendido">Atendido</option>
           <option value="aguardando_atendimento">Aguardando</option>
           <option value="nao_atendido">Não atendido</option>
+          <option value="recusado">Recusado</option>
         </select>
       </div>
       <div class="appt-table" id="appt-table">
@@ -591,7 +584,7 @@ function sortTechNames(names){
 /* --------------------------------------------------------------------
    3) ESTADO GLOBAL
    -------------------------------------------------------------------- */
-let state = { tech:null, queue:[], pos:0, accepted:[], skipped:[], history:[] };
+let state = { tech:null, queue:[], expandedId:null };
 let isAdmin = false;
 let dashUnsub = null;
 
@@ -694,85 +687,90 @@ async function loadTechList(){
    7) FILA DE ATENDIMENTOS DO TÉCNICO (Firestore em vez de localStorage)
    -------------------------------------------------------------------- */
 
-// função única usada tanto pelo atendimento quanto pelo agendamento,
-// pra garantir que as duas telas SEMPRE mostrem a mesma lista, na mesma ordem.
+// usada pela tela de agendamento (só quem ainda está aguardando atendimento)
 async function fetchPendingQueue(tech){
+  const items = await fetchAllForTech(tech);
+  return items.filter(i=> i.status === "aguardando_atendimento");
+}
+
+// usada pela tela de atendimento/lembretes — traz TODOS os atendimentos do técnico,
+// independente do status, pra nada sumir da tela.
+async function fetchAllForTech(tech){
   const snap = await db.collection(COLLECTION)
     .where("tecnico","==",tech)
     .get();
   let items = [];
   snap.forEach(doc=> items.push({ id: doc.id, ...doc.data() }));
   items.sort((a,b)=> (a.ordem||0) - (b.ordem||0));
-  return items.filter(i=> i.status === "aguardando_atendimento");
+  return items;
 }
 
 async function openTech(tech){
   state.tech = tech;
-  state.pos = 0;
-  state.accepted = [];
-  state.skipped = [];
-  state.history = [];
+  state.queue = [];
+  state.expandedId = null;
 
   document.getElementById("swipe-tech-badge").textContent = tech;
   goTo("swipe-screen");
-  document.getElementById("card-stack").innerHTML = `<div class="empty-state" style="position:absolute; inset:0; justify-content:center;"><div class="spinner"></div></div>`;
+  document.getElementById("lembrete-list").innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
 
-  state.queue = await fetchPendingQueue(tech);
-  renderStage();
+  state.queue = await fetchAllForTech(tech);
+  renderLembreteList();
 }
 
 function updateProgressUI(){
   const total = state.queue.length;
-  document.getElementById("stat-current").textContent = Math.min(state.pos+1, total);
-  document.getElementById("stat-total").textContent = total;
-  document.getElementById("stat-accept").textContent = state.accepted.length;
-  document.getElementById("stat-skip").textContent = state.skipped.length;
-  const done = state.accepted.length + state.skipped.length;
-  document.getElementById("progress-fill").style.width = total? Math.round((done/total)*100)+"%" : "0%";
+  const accepted = state.queue.filter(i=> i.status==="atendido").length;
+  const skipped = state.queue.filter(i=> i.status==="nao_atendido").length;
+  const refused = state.queue.filter(i=> i.status==="recusado").length;
+  const pending = state.queue.filter(i=> i.status==="aguardando_atendimento").length;
+  document.getElementById("stat-pending").textContent = pending;
+  document.getElementById("stat-accept").textContent = accepted;
+  document.getElementById("stat-skip").textContent = skipped;
+  document.getElementById("stat-refuse").textContent = refused;
+  const done = accepted + skipped + refused;
+  document.getElementById("progress-fill").style.width = total ? Math.round((done/total)*100)+"%" : "0%";
 }
 
-function renderStage(){
+function renderLembreteList(){
   updateProgressUI();
-  const stack = document.getElementById("card-stack");
-  stack.innerHTML = "";
+  const list = document.getElementById("lembrete-list");
 
-  if(state.pos >= state.queue.length){
-    document.getElementById("controls").style.display = "none";
-    stack.innerHTML = `
-      <div class="empty-state" style="position:absolute; inset:0; justify-content:center;">
-        <div class="big-check">✓</div>
-        <h3>Fila concluída</h3>
-        <p>Você passou por todos os atendimentos de ${state.tech}.</p>
-      </div>`;
-    setTimeout(()=> showSummary(), 650);
+  if(state.queue.length === 0){
+    list.innerHTML = `<div class="empty-state"><p>Nenhum atendimento encontrado pra ${state.tech}.</p></div>`;
     return;
   }
-  document.getElementById("controls").style.display = "flex";
 
-  const visible = state.queue.slice(state.pos, state.pos+3);
-  visible.slice().reverse().forEach(item=> stack.appendChild(buildCard(item)));
+  list.innerHTML = "";
+  state.queue.forEach(item=> list.appendChild(buildLembreteItem(item)));
 }
 
-function buildCard(item){
-  const card = document.createElement("div");
-  card.className = "card";
+const statusPillLabel = { aguardando_atendimento:"Aguardando", atendido:"✓ Atendido", nao_atendido:"↷ Não atendido", recusado:"✕ Recusado" };
+
+function buildLembreteItem(item){
+  const el = document.createElement("div");
+  el.className = "lembrete-item" + (state.expandedId===item.id ? " expanded" : "");
+  el.dataset.id = item.id;
+
   const contactRow = [];
   if(item.whatsapp) contactRow.push(`<a class="contact-btn wpp" href="https://wa.me/${item.whatsapp}" target="_blank">💬 WhatsApp</a>`);
+  else contactRow.push(`<span class="contact-btn disabled">💬 Sem WhatsApp válido</span>`);
   if(item.telefone2) contactRow.push(`<a class="contact-btn" href="tel:${item.telefone2}">📞 Ligar</a>`);
   const mapsQuery = encodeURIComponent(`${item.endereco}, ${item.bairro}, ${item.cidade}, ${item.cep}`);
 
-  card.innerHTML = `
-    <div class="ticket-top">
-      <span class="ticket-num">Nº ${String(item.ordem).padStart(3,"0")}</span>
-      <span class="ticket-turno turno-${item.turno}">${item.turno}</span>
+  el.innerHTML = `
+    <div class="lembrete-header">
+      <div class="lh-info">
+        <div class="lh-name">Nº ${String(item.ordem).padStart(3,"0")} · ${item.nome}</div>
+        <div class="lh-sub"><span class="ticket-turno turno-${item.turno}">${item.turno}</span> ${item.bairro||"—"} · ${item.jornada||"—"}</div>
+      </div>
+      <span class="status-pill ${item.status}">${statusPillLabel[item.status]||item.status}</span>
     </div>
-    <div class="perf"></div>
-    <div class="card-body">
-      <h3 class="card-name">${item.nome}</h3>
-      <div class="card-bairro">📍 ${item.bairro} · ${item.cidade}</div>
+    <div class="lembrete-details">
+      ${item.motivoPulo ? `<div class="tags" style="margin-bottom:10px;"><span class="tag">Motivo: ${item.motivoPulo}</span></div>` : ""}
       ${item.cepStatus && item.cepStatus !== "valido" ? `<div class="tags" style="margin-bottom:10px;"><span class="tag" style="background:#F8CBAD; border-color:#E8A17A; color:#833C00;">⚠️ CEP a revisar</span></div>` : ""}
       <div class="field time"><span class="label">Horário disponível</span><span class="value">${item.jornada || "—"}</span></div>
-      <div class="field"><span class="label">Endereço</span><span class="value">${item.endereco}${item.complemento? " — "+item.complemento:""}<br>CEP ${item.cep}</span></div>
+      <div class="field"><span class="label">Endereço completo</span><span class="value">${item.endereco}${item.complemento? " — "+item.complemento:""}<br>CEP ${item.cep}</span></div>
       ${item.referencia ? `<div class="field"><span class="label">Ponto de referência</span><span class="value">${item.referencia}</span></div>` : ""}
       ${item.obs ? `<div class="field"><span class="label">Observações</span><span class="value">${item.obs}</span></div>` : ""}
       <div class="tags">
@@ -783,79 +781,103 @@ function buildCard(item){
         ${contactRow.join("")}
         <a class="contact-btn" href="https://www.google.com/maps/search/?api=1&query=${mapsQuery}" target="_blank">🗺️ Mapa</a>
       </div>
+      <div class="lembrete-actions">
+        <button class="act-btn confirm" data-action="confirmar"><span class="ic">✓</span>Confirmar</button>
+        <button class="act-btn skip" data-action="pular"><span class="ic">↷</span>Pular</button>
+        <button class="act-btn refuse" data-action="recusou"><span class="ic">✕</span>Recusou</button>
+      </div>
+      ${item.status !== "aguardando_atendimento" ? `<button class="ghost-btn reabrir-btn" style="margin-top:10px;">↺ Voltar pra "aguardando"</button>` : ""}
     </div>
-    <div class="swipe-overlay accept">Aceito</div>
-    <div class="swipe-overlay skip">Pular</div>
   `;
-  attachSwipe(card);
-  return card;
+
+  el.querySelector(".lembrete-header").addEventListener("click", ()=>{
+    state.expandedId = state.expandedId===item.id ? null : item.id;
+    renderLembreteList();
+  });
+
+  el.querySelectorAll(".act-btn").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      openActionModal(item, btn.dataset.action);
+    });
+  });
+
+  const reabrirBtn = el.querySelector(".reabrir-btn");
+  if(reabrirBtn){
+    reabrirBtn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      reopenItem(item);
+    });
+  }
+
+  return el;
 }
 
-function attachSwipe(card){
-  let startX=0, startY=0, dx=0, dy=0, dragging=false;
-  const acceptOverlay = card.querySelector(".swipe-overlay.accept");
-  const skipOverlay = card.querySelector(".swipe-overlay.skip");
-  function isTopCard(){ return card === document.getElementById("card-stack").lastElementChild; }
-  function onStart(x,y){ if(!isTopCard()) return; dragging=true; startX=x; startY=y; card.style.transition="none"; }
-  function onMove(x,y){
-    if(!dragging) return;
-    dx = x-startX; dy = y-startY;
-    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx/18}deg)`;
-    const p = Math.min(Math.abs(dx)/120, 1);
-    if(dx>0){ acceptOverlay.style.opacity=p; skipOverlay.style.opacity=0; }
-    else { skipOverlay.style.opacity=p; acceptOverlay.style.opacity=0; }
-  }
-  function onEnd(){
-    if(!dragging) return;
-    dragging=false; card.style.transition="transform .3s ease";
-    if(dx>110) finishSwipe(card,"accept");
-    else if(dx<-110) finishSwipe(card,"skip");
-    else{ card.style.transform="translate(0,0) rotate(0)"; acceptOverlay.style.opacity=0; skipOverlay.style.opacity=0; }
-  }
-  card.addEventListener("touchstart", e=> onStart(e.touches[0].clientX, e.touches[0].clientY), {passive:true});
-  card.addEventListener("touchmove", e=> onMove(e.touches[0].clientX, e.touches[0].clientY), {passive:true});
-  card.addEventListener("touchend", onEnd);
-  card.addEventListener("mousedown", e=> onStart(e.clientX, e.clientY));
-  window.addEventListener("mousemove", e=> onMove(e.clientX, e.clientY));
-  window.addEventListener("mouseup", onEnd);
-}
-
-function finishSwipe(card, action){
-  const item = state.queue[state.pos];
-  const flyX = action==="accept" ? window.innerWidth : -window.innerWidth;
-  const m = card.style.transform.match(/translate\([-\d.]+px,\s*([-\d.]+)px\)/);
-  const dy = m ? parseFloat(m[1]) : 0;
-  card.style.transform = `translate(${flyX}px, ${dy}px) rotate(${action==="accept"?25:-25}deg)`;
-  card.style.opacity = "0";
-
-  const newStatus = action === "accept" ? "atendido" : "nao_atendido";
+function reopenItem(item){
   db.collection(COLLECTION).doc(item.id).update({
-    status: newStatus,
+    status: "aguardando_atendimento",
+    motivoPulo: firebase.firestore.FieldValue.delete(),
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-  }).catch(err=> console.error("erro ao atualizar status", err));
+  }).catch(err=> console.error("erro ao reabrir atendimento", err));
 
-  if(action==="accept") state.accepted.push(item); else state.skipped.push(item);
-  state.history.push(action);
-  state.pos += 1;
-  setTimeout(renderStage, 220);
+  item.status = "aguardando_atendimento";
+  delete item.motivoPulo;
+  renderLembreteList();
 }
 
-function programmaticSwipe(action){
-  const card = document.getElementById("card-stack").lastElementChild;
-  if(!card) return;
-  card.style.transition = "transform .3s ease";
-  finishSwipe(card, action);
+/* ---------------- MODAL DE CONFIRMAÇÃO POR AÇÃO ---------------- */
+const modalOverlay = document.getElementById("action-modal");
+const modalTitle = document.getElementById("modal-title");
+const modalText = document.getElementById("modal-text");
+const modalOptions = document.getElementById("modal-options");
+document.getElementById("modal-cancel").addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e)=>{ if(e.target === modalOverlay) closeModal(); });
+
+function closeModal(){ modalOverlay.classList.remove("open"); modalOptions.innerHTML = ""; }
+
+function openActionModal(item, action){
+  modalOptions.innerHTML = "";
+
+  if(action === "confirmar"){
+    modalTitle.textContent = "Confirmar atendimento";
+    modalText.textContent = "Você foi até a casa do cliente?";
+    addModalOption("Sim, fui e atendi — confirmar", "primary", ()=> finalizeAction(item, "atendido"));
+  }
+  else if(action === "pular"){
+    modalTitle.textContent = "Pular atendimento";
+    modalText.textContent = "Por que não foi possível atender agora?";
+    addModalOption("Cliente não respondeu", null, ()=> finalizeAction(item, "nao_atendido", "Cliente não respondeu"));
+    addModalOption("Não consegui falar com o cliente", null, ()=> finalizeAction(item, "nao_atendido", "Não consegui falar com o cliente"));
+    addModalOption("Outro problema", null, ()=> finalizeAction(item, "nao_atendido", "Outro problema"));
+  }
+  else if(action === "recusou"){
+    modalTitle.textContent = "Cliente recusou atendimento";
+    modalText.textContent = "Confirma que o cliente se recusou a receber o atendimento?";
+    addModalOption("Sim, cliente recusou", "danger", ()=> finalizeAction(item, "recusado"));
+  }
+
+  modalOverlay.classList.add("open");
 }
-document.getElementById("btn-accept").addEventListener("click", ()=> programmaticSwipe("accept"));
-document.getElementById("btn-skip").addEventListener("click", ()=> programmaticSwipe("skip"));
-document.getElementById("btn-undo").addEventListener("click", ()=>{
-  if(state.history.length===0) return;
-  const last = state.history.pop();
-  const item = last==="accept" ? state.accepted.pop() : state.skipped.pop();
-  db.collection(COLLECTION).doc(item.id).update({ status:"aguardando_atendimento" }).catch(()=>{});
-  state.pos -= 1;
-  renderStage();
-});
+
+function addModalOption(label, cls, handler){
+  const btn = document.createElement("button");
+  if(cls) btn.className = cls;
+  btn.textContent = label;
+  btn.addEventListener("click", handler);
+  modalOptions.appendChild(btn);
+}
+
+function finalizeAction(item, newStatus, motivo){
+  closeModal();
+
+  const payload = { status: newStatus, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() };
+  payload.motivoPulo = motivo ? motivo : firebase.firestore.FieldValue.delete();
+  db.collection(COLLECTION).doc(item.id).update(payload).catch(err=> console.error("erro ao atualizar status", err));
+
+  item.status = newStatus;
+  if(motivo) item.motivoPulo = motivo; else delete item.motivoPulo;
+  renderLembreteList();
+}
 
 /* --------------------------------------------------------------------
    7b) AGENDAMENTO — mesma fila do atendimento, só clicar e mandar
@@ -903,7 +925,7 @@ function renderAgendamento(items){
           ? (item.mensagemEnviada
               ? `<a class="agd-btn wpp" href="${waLink}" target="_blank">💬 Reenviar</a><span class="agd-btn sent-tag">✓ Enviado</span>`
               : `<a class="agd-btn wpp" href="${waLink}" target="_blank" data-id="${item.id}">💬 Enviar mensagem</a>`)
-          : `<span class="no-phone">Sem número de WhatsApp cadastrado</span>`}
+          : `<span class="no-phone">Sem número de WhatsApp válido cadastrado</span>`}
       </div>
     `;
 
@@ -921,25 +943,6 @@ function renderAgendamento(items){
     }
     listEl.appendChild(el);
   });
-}
-
-function showSummary(){
-  goTo("summary-screen");
-  document.getElementById("summary-tech-name").textContent = state.tech;
-  document.getElementById("sum-accept").textContent = state.accepted.length;
-  document.getElementById("sum-skip").textContent = state.skipped.length;
-  const wrap = document.getElementById("skip-list-wrap");
-  const list = document.getElementById("skip-list");
-  list.innerHTML = "";
-  if(state.skipped.length){
-    wrap.style.display = "block";
-    state.skipped.forEach(item=>{
-      const el = document.createElement("div");
-      el.className = "skip-item";
-      el.innerHTML = `<div><div class="si-name">${item.nome}</div><div class="si-bairro">${item.bairro} · ${item.jornada}</div></div>`;
-      list.appendChild(el);
-    });
-  } else wrap.style.display = "none";
 }
 
 /* --------------------------------------------------------------------
@@ -970,11 +973,13 @@ async function loadDashboard(){
 function renderDashboard(rows){
   const kAll=rows.length, kOk=rows.filter(r=>r.status==="atendido").length,
         kWait=rows.filter(r=>r.status==="aguardando_atendimento").length,
-        kNo=rows.filter(r=>r.status==="nao_atendido").length;
+        kNo=rows.filter(r=>r.status==="nao_atendido").length,
+        kRefuse=rows.filter(r=>r.status==="recusado").length;
   document.getElementById("kpi-total").textContent = kAll;
   document.getElementById("kpi-ok").textContent = kOk;
   document.getElementById("kpi-wait").textContent = kWait;
   document.getElementById("kpi-no").textContent = kNo;
+  document.getElementById("kpi-refuse").textContent = kRefuse;
 
   const techsPresent = sortTechNames([...new Set(rows.map(r=>r.tecnico).filter(Boolean))]);
 
@@ -988,11 +993,12 @@ function renderDashboard(rows){
     const ok = trows.filter(r=>r.status==="atendido").length;
     const wait = trows.filter(r=>r.status==="aguardando_atendimento").length;
     const no = trows.filter(r=>r.status==="nao_atendido").length;
+    const refuse = trows.filter(r=>r.status==="recusado").length;
     const el = document.createElement("div");
     el.className = "tech-summary-row";
     el.innerHTML = `
       <div class="tn"><span class="tech-dot" style="background:${techColor(t)}"></span>${t}</div>
-      <div class="counts"><span>${trows.length} total</span><b class="ok">${ok} ✓</b><b class="wait">${wait} ⏳</b><b class="no">${no} ✕</b></div>
+      <div class="counts"><span>${trows.length} total</span><b class="ok">${ok} ✓</b><b class="wait">${wait} ⏳</b><b class="no">${no} ✕</b><b class="no">${refuse} 🚫</b></div>
     `;
     techList.appendChild(el);
   });
@@ -1017,7 +1023,7 @@ function renderDashboard(rows){
     tableWrap.innerHTML = `<div class="empty-state"><p>Nenhum atendimento encontrado com esse filtro.</p></div>`;
     return;
   }
-  const statusLabel = {atendido:"Atendido", aguardando_atendimento:"Aguardando", nao_atendido:"Não atendido"};
+  const statusLabel = {atendido:"Atendido", aguardando_atendimento:"Aguardando", nao_atendido:"Não atendido", recusado:"Recusado"};
   filtered.forEach(r=>{
     const el = document.createElement("div");
     el.className = "appt-row";
@@ -1092,10 +1098,36 @@ function turnoFromMinutes(mins){
   if(h < 18) return "Tarde";
   return "Noite";
 }
+// Normaliza número de telefone BR pro formato exigido pelo wa.me: 55 + DDD(2) + número(8 ou 9).
+// Retorna "" quando não dá pra montar um número válido (evita link do WhatsApp quebrado / "número não existe").
 function phoneDigits(v){
   if(!v) return "";
   let d = String(v).replace(/[^0-9]/g,"");
-  if(d && !d.startsWith("55")) d = "55"+d;
+  if(!d) return "";
+
+  // remove zero de discagem local na frente (ex: 0 83 99999-9999)
+  if(d.startsWith("0") && d.length > 10) d = d.replace(/^0+/, "");
+
+  // já vem com código do país (0055 ou 55 + DDD + número = 12 ou 13 dígitos)
+  if((d.startsWith("0055")) ) d = d.slice(2);
+
+  if(d.startsWith("55") && (d.length === 12 || d.length === 13)){
+    // ok, já está no formato certo
+  } else if(d.length === 10 || d.length === 11){
+    // DDD + número, sem código do país
+    d = "55" + d;
+  } else if(d.startsWith("55") && d.length > 13){
+    // lixo extra depois do número válido — corta pro tamanho certo
+    d = d.slice(0, 13);
+  } else {
+    // não dá pra confiar nesse número (curto demais, incompleto etc.)
+    return "";
+  }
+
+  // valida DDD (11 a 99) pra pegar erro de dígito faltando/sobrando
+  const ddd = parseInt(d.slice(2,4), 10);
+  if(ddd < 11 || ddd > 99) return "";
+
   return d;
 }
 function haversine(a,b){
