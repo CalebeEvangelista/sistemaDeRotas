@@ -175,14 +175,16 @@
   .act-btn.skip{ background:#F4DDA0; color:#5C4406; }
   .act-btn.refuse{ background:#F2C6C2; color:#7A2B24; }
 
-  .status-pill{
-    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em; text-transform:uppercase; font-weight:700;
-    padding:4px 9px; border-radius:20px; flex-shrink:0;
+  .handled-item{
+    background:var(--navy-2); border:1px solid rgba(250,246,236,.1); border-radius:12px; padding:12px 14px; margin-bottom:8px;
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
   }
-  .status-pill.aguardando_atendimento{ background:var(--paper-2); color:var(--ink-soft); border:1px solid var(--line); }
-  .status-pill.atendido{ background:#DCF2E3; color:#1F6B41; }
-  .status-pill.nao_atendido{ background:#F4DDA0; color:#5C4406; }
-  .status-pill.recusado{ background:#F2C6C2; color:#7A2B24; }
+  .handled-item .hi-name{ font-size:13.5px; font-weight:600; color:var(--paper); }
+  .handled-item .hi-status{ font-size:11px; margin-top:2px; display:inline-flex; align-items:center; gap:5px; }
+  .handled-item .hi-status.atendido{ color:var(--green); }
+  .handled-item .hi-status.nao_atendido{ color:var(--amber); }
+  .handled-item .hi-status.recusado{ color:#C2554F; }
+  .handled-item button{ background:rgba(250,246,236,.12); color:var(--paper); border:none; border-radius:8px; font-size:11.5px; font-weight:700; padding:7px 10px; cursor:pointer; flex-shrink:0; }
 
   /* ---------- MODAL DE CONFIRMAÇÃO ---------- */
   .modal-overlay{
@@ -413,10 +415,15 @@
 
   <div class="dash-body" style="padding-top:14px;">
     <div class="dash-section">
-      <h3>Atendimentos de hoje</h3>
+      <h3>Lembretes de hoje</h3>
       <div id="lembrete-list" class="lembrete-list">
         <div class="empty-state"><div class="spinner"></div></div>
       </div>
+    </div>
+
+    <div class="dash-section" id="handled-section" style="display:none;">
+      <h3>Já alterados — revisitar depois</h3>
+      <div id="handled-list" class="lembrete-list"></div>
     </div>
 
     <button class="ghost-btn" style="width:100%; margin-top:6px;" onclick="goToSelect()">&larr; Voltar pra seleção</button>
@@ -511,6 +518,14 @@
     </div>
 
     <div class="dash-section">
+      <h3>Mesclar técnicos duplicados</h3>
+      <div class="t2" style="margin-bottom:10px;">Corrige cadastros antigos que ficaram duplicados por causa de grafias diferentes do mesmo técnico (ex: "Willian Nathan" e "willian nathan"). Junta tudo num nome só.</div>
+      <button class="primary-btn" id="btn-merge-preview" type="button">Verificar duplicados</button>
+      <div class="upload-status" id="merge-status"></div>
+      <div class="flag-box" id="merge-preview-box" style="display:none;"></div>
+    </div>
+
+    <div class="dash-section">
       <h3>Atendimentos do dia</h3>
       <div class="filter-row">
         <select id="filter-tecnico">
@@ -584,7 +599,7 @@ function sortTechNames(names){
 /* --------------------------------------------------------------------
    3) ESTADO GLOBAL
    -------------------------------------------------------------------- */
-let state = { tech:null, queue:[], expandedId:null };
+let state = { tech:null, queue:[], handled:[], expandedId:null };
 let isAdmin = false;
 let dashUnsub = null;
 
@@ -687,14 +702,23 @@ async function loadTechList(){
    7) FILA DE ATENDIMENTOS DO TÉCNICO (Firestore em vez de localStorage)
    -------------------------------------------------------------------- */
 
-// usada pela tela de agendamento (só quem ainda está aguardando atendimento)
+// função única usada tanto pelo atendimento quanto pelo agendamento,
+// pra garantir que as duas telas SEMPRE mostrem a mesma lista, na mesma ordem.
 async function fetchPendingQueue(tech){
-  const items = await fetchAllForTech(tech);
+  const snap = await db.collection(COLLECTION)
+    .where("tecnico","==",tech)
+    .get();
+  let items = [];
+  snap.forEach(doc=> items.push({ id: doc.id, ...doc.data() }));
+  items.sort((a,b)=> (a.ordem||0) - (b.ordem||0));
   return items.filter(i=> i.status === "aguardando_atendimento");
 }
 
-// usada pela tela de atendimento/lembretes — traz TODOS os atendimentos do técnico,
-// independente do status, pra nada sumir da tela.
+// busca TODOS os atendimentos do técnico (pendentes + já concluídos em
+// qualquer sessão anterior). Sem isso, ao reabrir a tela do técnico o
+// state.handled voltava vazio (era só memória da sessão), então quem já
+// tinha sido atendido antes "sumia" — não estava perdido no Firebase,
+// só não era buscado de novo pra aparecer na seção "Já resolvidos".
 async function fetchAllForTech(tech){
   const snap = await db.collection(COLLECTION)
     .where("tecnico","==",tech)
@@ -708,28 +732,35 @@ async function fetchAllForTech(tech){
 async function openTech(tech){
   state.tech = tech;
   state.queue = [];
+  state.handled = [];
   state.expandedId = null;
 
   document.getElementById("swipe-tech-badge").textContent = tech;
   goTo("swipe-screen");
   document.getElementById("lembrete-list").innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+  document.getElementById("handled-section").style.display = "none";
 
-  state.queue = await fetchAllForTech(tech);
+  const all = await fetchAllForTech(tech);
+  state.queue = all.filter(i=> i.status === "aguardando_atendimento");
+  // já concluídos (em qualquer sessão) entram aqui, mapeando os nomes de
+  // campo do Firestore (status/motivoPulo) pros nomes que a tela usa
+  // (newStatus/motivo).
+  state.handled = all
+    .filter(i=> i.status !== "aguardando_atendimento")
+    .map(i=> ({ ...i, newStatus: i.status, motivo: i.motivoPulo }));
   renderLembreteList();
 }
 
 function updateProgressUI(){
-  const total = state.queue.length;
-  const accepted = state.queue.filter(i=> i.status==="atendido").length;
-  const skipped = state.queue.filter(i=> i.status==="nao_atendido").length;
-  const refused = state.queue.filter(i=> i.status==="recusado").length;
-  const pending = state.queue.filter(i=> i.status==="aguardando_atendimento").length;
-  document.getElementById("stat-pending").textContent = pending;
+  const total = state.queue.length + state.handled.length;
+  const accepted = state.handled.filter(h=> h.newStatus==="atendido").length;
+  const skipped = state.handled.filter(h=> h.newStatus==="nao_atendido").length;
+  const refused = state.handled.filter(h=> h.newStatus==="recusado").length;
+  document.getElementById("stat-pending").textContent = state.queue.length;
   document.getElementById("stat-accept").textContent = accepted;
   document.getElementById("stat-skip").textContent = skipped;
   document.getElementById("stat-refuse").textContent = refused;
-  const done = accepted + skipped + refused;
-  document.getElementById("progress-fill").style.width = total ? Math.round((done/total)*100)+"%" : "0%";
+  document.getElementById("progress-fill").style.width = total ? Math.round((state.handled.length/total)*100)+"%" : "0%";
 }
 
 function renderLembreteList(){
@@ -737,15 +768,19 @@ function renderLembreteList(){
   const list = document.getElementById("lembrete-list");
 
   if(state.queue.length === 0){
-    list.innerHTML = `<div class="empty-state"><p>Nenhum atendimento encontrado pra ${state.tech}.</p></div>`;
-    return;
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="big-check">✓</div>
+        <h3>Fila concluída</h3>
+        <p>Você passou por todos os atendimentos de ${state.tech}.</p>
+      </div>`;
+  } else {
+    list.innerHTML = "";
+    state.queue.forEach(item=> list.appendChild(buildLembreteItem(item)));
   }
 
-  list.innerHTML = "";
-  state.queue.forEach(item=> list.appendChild(buildLembreteItem(item)));
+  renderHandledList();
 }
-
-const statusPillLabel = { aguardando_atendimento:"Aguardando", atendido:"✓ Atendido", nao_atendido:"↷ Não atendido", recusado:"✕ Recusado" };
 
 function buildLembreteItem(item){
   const el = document.createElement("div");
@@ -764,10 +799,9 @@ function buildLembreteItem(item){
         <div class="lh-name">Nº ${String(item.ordem).padStart(3,"0")} · ${item.nome}</div>
         <div class="lh-sub"><span class="ticket-turno turno-${item.turno}">${item.turno}</span> ${item.bairro||"—"} · ${item.jornada||"—"}</div>
       </div>
-      <span class="status-pill ${item.status}">${statusPillLabel[item.status]||item.status}</span>
+      <div class="lh-chevron">▾ ver detalhes</div>
     </div>
     <div class="lembrete-details">
-      ${item.motivoPulo ? `<div class="tags" style="margin-bottom:10px;"><span class="tag">Motivo: ${item.motivoPulo}</span></div>` : ""}
       ${item.cepStatus && item.cepStatus !== "valido" ? `<div class="tags" style="margin-bottom:10px;"><span class="tag" style="background:#F8CBAD; border-color:#E8A17A; color:#833C00;">⚠️ CEP a revisar</span></div>` : ""}
       <div class="field time"><span class="label">Horário disponível</span><span class="value">${item.jornada || "—"}</span></div>
       <div class="field"><span class="label">Endereço completo</span><span class="value">${item.endereco}${item.complemento? " — "+item.complemento:""}<br>CEP ${item.cep}</span></div>
@@ -786,7 +820,6 @@ function buildLembreteItem(item){
         <button class="act-btn skip" data-action="pular"><span class="ic">↷</span>Pular</button>
         <button class="act-btn refuse" data-action="recusou"><span class="ic">✕</span>Recusou</button>
       </div>
-      ${item.status !== "aguardando_atendimento" ? `<button class="ghost-btn reabrir-btn" style="margin-top:10px;">↺ Voltar pra "aguardando"</button>` : ""}
     </div>
   `;
 
@@ -802,26 +835,41 @@ function buildLembreteItem(item){
     });
   });
 
-  const reabrirBtn = el.querySelector(".reabrir-btn");
-  if(reabrirBtn){
-    reabrirBtn.addEventListener("click", (e)=>{
-      e.stopPropagation();
-      reopenItem(item);
-    });
-  }
-
   return el;
 }
 
-function reopenItem(item){
-  db.collection(COLLECTION).doc(item.id).update({
+function renderHandledList(){
+  const section = document.getElementById("handled-section");
+  const list = document.getElementById("handled-list");
+  if(state.handled.length === 0){ section.style.display = "none"; return; }
+  section.style.display = "block";
+  list.innerHTML = "";
+  const labels = { atendido: "✓ Atendido", nao_atendido: "↷ Não atendido", recusado: "✕ Recusou atendimento" };
+  state.handled.slice().reverse().forEach(h=>{
+    const el = document.createElement("div");
+    el.className = "handled-item";
+    el.innerHTML = `
+      <div>
+        <div class="hi-name">${h.nome}</div>
+        <div class="hi-status ${h.newStatus}">${labels[h.newStatus]||h.newStatus}${h.motivo? " — "+h.motivo : ""}</div>
+      </div>
+      <button>Reabrir</button>
+    `;
+    el.querySelector("button").addEventListener("click", ()=> reopenItem(h));
+    list.appendChild(el);
+  });
+}
+
+function reopenItem(h){
+  db.collection(COLLECTION).doc(h.id).update({
     status: "aguardando_atendimento",
-    motivoPulo: firebase.firestore.FieldValue.delete(),
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
   }).catch(err=> console.error("erro ao reabrir atendimento", err));
 
-  item.status = "aguardando_atendimento";
-  delete item.motivoPulo;
+  state.handled = state.handled.filter(x=> x.id !== h.id);
+  const { newStatus, motivo, ...original } = h;
+  state.queue.push(original);
+  state.queue.sort((a,b)=> (a.ordem||0)-(b.ordem||0));
   renderLembreteList();
 }
 
@@ -871,11 +919,12 @@ function finalizeAction(item, newStatus, motivo){
   closeModal();
 
   const payload = { status: newStatus, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() };
-  payload.motivoPulo = motivo ? motivo : firebase.firestore.FieldValue.delete();
+  if(motivo) payload.motivoPulo = motivo;
   db.collection(COLLECTION).doc(item.id).update(payload).catch(err=> console.error("erro ao atualizar status", err));
 
-  item.status = newStatus;
-  if(motivo) item.motivoPulo = motivo; else delete item.motivoPulo;
+  state.queue = state.queue.filter(i=> i.id !== item.id);
+  state.handled.push({ ...item, newStatus, motivo });
+  if(state.expandedId === item.id) state.expandedId = null;
   renderLembreteList();
 }
 
@@ -1045,11 +1094,11 @@ function renderDashboard(rows){
 const HEADER_MAP = {
   matricula: ["MATRICULA AEC"],
   nome: ["NOME COMPLETO"],
-  whatsapp: ["( WHATSAPP)", "WHATSAPP"],
+  whatsapp: ["TELEFONE DE CONTATO ( WHATSAPP)", "TELEFONE DE CONTATO (WHATSAPP)", "( WHATSAPP)", "WHATSAPP"],
   telefone2: ["2º TELEFONE", "2O TELEFONE", "TELEFONE 2"],
   jornada: ["JORNADA DE TRABALHO"],
   endereco: ["ENDEREÇO ( RUA, AVENIDA, SITIO)", "ENDERECO ( RUA, AVENIDA, SITIO)", "ENDEREÇO"],
-  numero: ["NÚMERO ", "NUMERO ", "NÚMERO", "NUMERO"],
+  numero: ["NÚMERO DA RESIDENCIA", "NUMERO DA RESIDENCIA", "NÚMERO ", "NUMERO ", "NÚMERO", "NUMERO"],
   bairro: ["BAIRRO"],
   complemento: ["COMPLEMENTO ( CASA, NÚMERO DO APARTAMENTO)", "COMPLEMENTO"],
   referencia: ["PONTO DE REFERENCIA", "PONTO DE REFERÊNCIA"],
@@ -1066,9 +1115,22 @@ function buildHeaderIndex(headerRow){
   const idx = {};
   const normed = headerRow.map(normHeader);
   Object.keys(HEADER_MAP).forEach(key=>{
+    // 1ª passada: match exato (mais seguro, evita pegar coluna errada)
     for(const candidate of HEADER_MAP[key]){
       const pos = normed.indexOf(normHeader(candidate));
       if(pos !== -1){ idx[key] = pos; break; }
+    }
+    // 2ª passada: se não achou exato, tenta por substring — cobre casos em
+    // que o cabeçalho real tem texto extra em volta (ex: "TELEFONE DE
+    // CONTATO ( WHATSAPP)" não bate exato com "WHATSAPP", mas contém).
+    // Isso evita que a coluna suma de novo só porque o texto do cabeçalho
+    // mudou um pouco (espaço, prefixo, etc).
+    if(idx[key] === undefined){
+      for(const candidate of HEADER_MAP[key]){
+        const cand = normHeader(candidate);
+        const pos = normed.findIndex(h => h.includes(cand));
+        if(pos !== -1){ idx[key] = pos; break; }
+      }
     }
   });
   return idx;
@@ -1098,7 +1160,25 @@ function turnoFromMinutes(mins){
   if(h < 18) return "Tarde";
   return "Noite";
 }
-// Normaliza número de telefone BR pro formato exigido pelo wa.me: 55 + DDD(2) + número(8 ou 9).
+// Quando o Excel/Sheets "reconhece" uma célula como horário (ex: alguém digitou
+// só "15:40" e o programa converteu a célula inteira pro formato Hora), o
+// SheetJS não devolve mais o texto "15:40 as 22:00" — devolve um número
+// decimal (fração do dia, ex: 0.6527777...). Sem tratar isso, a tela mostrava
+// esse número cru no lugar do horário. Essa função converte de volta pra
+// "HH:MM" quando o valor vier como número, e avisa que só o horário de início
+// sobreviveu (o resto do texto foi perdido na hora que a célula virou Hora).
+function formatJornada(v){
+  if(v===null || v===undefined || v==="") return "";
+  if(typeof v === "number"){
+    const totalMin = Math.round(v*24*60);
+    const h = Math.floor(totalMin/60).toString().padStart(2,"0");
+    const m = (totalMin%60).toString().padStart(2,"0");
+    return `${h}:${m} (só início — planilha perdeu o horário final nessa célula)`;
+  }
+  return String(v).trim();
+}
+
+
 // Retorna "" quando não dá pra montar um número válido (evita link do WhatsApp quebrado / "número não existe").
 function phoneDigits(v){
   if(!v) return "";
@@ -1155,6 +1235,37 @@ function normalizeTecnico(raw){
   return s;
 }
 
+// Chave "canônica" pra comparar nomes de técnico ignorando maiúsculas/minúsculas,
+// acentos e espaços extras — evita cadastro duplicado quando o mesmo técnico
+// vem grafado diferente em uploads diferentes (ex: "Willian Nathan" vs "willian nathan").
+function canonTecKey(s){
+  if(!s) return "";
+  return String(s).trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/\s+/g," ");
+}
+
+// Grupos de apelidos/variações de nome do MESMO técnico que não dá pra detectar
+// só por acento/maiúscula (ex: nome completo vs nome curto). Cada linha é um grupo —
+// pode ter quantos nomes precisar. Pra adicionar um novo caso, é só incluir o nome
+// exato (como aparece na planilha) numa linha existente, ou criar uma linha nova.
+const TECNICO_ALIAS_CLUSTERS = [
+  ["Erick Araken", "Erick Araken Vieira Gomes"],
+  ["Esdras Lima", "Esdras Bezerra de Lima", "Esdras Bezerra"],
+  ["Victor Monte", "José Victor Barbosa Monte"],
+];
+const TECNICO_CLUSTER_LOOKUP = {};
+TECNICO_ALIAS_CLUSTERS.forEach((cluster, i)=>{
+  cluster.forEach(nome=> TECNICO_CLUSTER_LOOKUP[canonTecKey(nome)] = "cluster_"+i);
+});
+
+// Chave de agrupamento "de verdade": usa o cluster manual se o nome bater com
+// algum apelido conhecido; senão cai pra chave canônica normal (acento/maiúscula).
+function tecGroupKey(s){
+  const ck = canonTecKey(s);
+  return TECNICO_CLUSTER_LOOKUP[ck] || ck;
+}
+
 function readSheet(file){
   return new Promise((resolve,reject)=>{
     const reader = new FileReader();
@@ -1196,6 +1307,21 @@ async function handleUploadedFile(file){
   const dataRows = rows.slice(1).filter(r=> r && r.some(v=> v!==null && v!==""));
   statusEl.textContent = `Processando ${dataRows.length} linhas...`;
 
+  // busca uma vez só o que já existe no banco — usado tanto pra achar o
+  // técnico "oficial" já cadastrado (por nome, ignorando acento/maiúscula)
+  // quanto pra não perder o status de quem já foi atendido (por matrícula)
+  const existingSnap = await db.collection(COLLECTION).get();
+  const existingByMatricula = {};
+  const tecCanonMap = {};
+  existingSnap.forEach(doc=>{
+    const d = doc.data();
+    existingByMatricula[d.matricula] = {id:doc.id, ...d};
+    if(d.tecnico){
+      const k = tecGroupKey(d.tecnico);
+      if(!tecCanonMap[k]) tecCanonMap[k] = d.tecnico;
+    }
+  });
+
   const parsed = [];
   let nSemDados=0, nSemTecnico=0, nCepInvalido=0, nCepForaArea=0;
 
@@ -1210,8 +1336,16 @@ async function handleUploadedFile(file){
     };
     if(!cell.matricula || !cell.nome || !cell.endereco){ nSemDados++; return; }
 
-    const tecnico = normalizeTecnico(cell.tecnicoRaw);
+    let tecnico = normalizeTecnico(cell.tecnicoRaw);
     if(!tecnico){ nSemTecnico++; return; }
+    // se já existe um técnico cadastrado com esse mesmo nome (ignorando
+    // acento/maiúscula), usa o nome que já tá no banco em vez de criar um novo
+    const tecKey = tecGroupKey(tecnico);
+    if(tecCanonMap[tecKey]){
+      tecnico = tecCanonMap[tecKey];
+    } else {
+      tecCanonMap[tecKey] = tecnico;
+    }
 
     const clsCep = classifyCep(cell.cep);
     if(clsCep.status === "invalido") nCepInvalido++;
@@ -1229,7 +1363,7 @@ async function handleUploadedFile(file){
       nome: String(cell.nome).trim(),
       whatsapp: phoneDigits(cell.whatsapp),
       telefone2: phoneDigits(cell.telefone2),
-      jornada: cell.jornada ? String(cell.jornada).trim() : "",
+      jornada: formatJornada(cell.jornada),
       endereco: cell.numero ? `${String(cell.endereco).trim()}, ${String(cell.numero).trim()}` : String(cell.endereco).trim(),
       complemento: cell.complemento ? String(cell.complemento).trim() : "",
       referencia: cell.referencia ? String(cell.referencia).trim() : "",
@@ -1239,6 +1373,12 @@ async function handleUploadedFile(file){
       turno, mins, tecnico,
     });
   });
+
+  // Regra de ranking: dentro da fila de cada técnico, mostra primeiro quem
+  // é de Manhã, depois Tarde, depois Noite — mantendo a ordem da planilha
+  // dentro de cada turno (ordenação estável).
+  const TURNO_RANK = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
+  parsed.sort((a,b)=> (TURNO_RANK[a.turno]??9) - (TURNO_RANK[b.turno]??9));
 
   // mantém a ordem exata em que as linhas vieram na planilha (por técnico)
   const orderCounter = {};
@@ -1250,7 +1390,7 @@ async function handleUploadedFile(file){
   statusEl.textContent = `Salvando ${parsed.length} atendimentos no Firebase...`;
 
   try{
-    await upsertToFirestore(parsed);
+    await upsertToFirestore(parsed, existingByMatricula);
   }catch(err){
     statusEl.className="upload-status err";
     statusEl.textContent = "Erro ao salvar no Firebase: "+err.message;
@@ -1272,12 +1412,7 @@ async function handleUploadedFile(file){
   loadDashboard();
 }
 
-async function upsertToFirestore(parsedRows){
-  // busca o que já existe pra não perder o status de quem já foi atendido
-  const existingSnap = await db.collection(COLLECTION).get();
-  const existingByMatricula = {};
-  existingSnap.forEach(doc=> existingByMatricula[doc.data().matricula] = {id:doc.id, ...doc.data()});
-
+async function upsertToFirestore(parsedRows, existingByMatricula){
   // Firestore limita 500 operações por batch
   const chunks = [];
   for(let i=0;i<parsedRows.length;i+=400) chunks.push(parsedRows.slice(i,i+400));
@@ -1305,6 +1440,114 @@ fileInput.addEventListener("change", (e)=>{ if(e.target.files[0]) handleUploaded
     if(evt==="dragover") uploadBox.classList.add("dragover");
     else uploadBox.classList.remove("dragover");
     if(evt==="drop" && e.dataTransfer.files[0]) handleUploadedFile(e.dataTransfer.files[0]);
+  });
+});
+
+/* --------------------------------------------------------------------
+   9b) MESCLAR TÉCNICOS DUPLICADOS (corrige cadastros antigos)
+   -------------------------------------------------------------------- */
+
+// Escolhe qual grafia vira a "oficial" dentro de um grupo de variantes do
+// mesmo técnico: prioriza a mais usada; empate, prioriza a que já vem em
+// Title Case (primeira letra de cada palavra maiúscula); empate, a primeira em ordem alfabética.
+function pickCanonicalTecnico(countsByRaw){
+  const entries = Object.entries(countsByRaw); // [ [nomeExato, qtd], ... ]
+  const looksTitleCase = (s)=> s.split(" ").every(w => w.length===0 || w[0]===w[0].toUpperCase());
+  entries.sort((a,b)=>{
+    if(b[1] !== a[1]) return b[1]-a[1];               // maior contagem primeiro
+    const ta = looksTitleCase(a[0]), tb = looksTitleCase(b[0]);
+    if(ta !== tb) return ta ? -1 : 1;                  // title case primeiro
+    return a[0].localeCompare(b[0]);                    // desempate estável
+  });
+  return entries[0][0];
+}
+
+async function buildMergePlan(){
+  const snap = await db.collection(COLLECTION).get();
+  const groups = {}; // canonKey -> { docs:[{id,tecnico}], counts:{tecnicoExato:qtd} }
+  snap.forEach(doc=>{
+    const d = doc.data();
+    if(!d.tecnico) return;
+    const key = tecGroupKey(d.tecnico);
+    if(!groups[key]) groups[key] = { docs:[], counts:{} };
+    groups[key].docs.push({id:doc.id, tecnico:d.tecnico});
+    groups[key].counts[d.tecnico] = (groups[key].counts[d.tecnico]||0) + 1;
+  });
+
+  const plan = []; // { canonKey, canonical, variantes:[{nome,qtd}], docIdsParaAtualizar:[...] }
+  Object.entries(groups).forEach(([key, g])=>{
+    const variantNames = Object.keys(g.counts);
+    if(variantNames.length < 2) return; // sem duplicidade de grafia nesse grupo
+    const canonical = pickCanonicalTecnico(g.counts);
+    const docIdsParaAtualizar = g.docs.filter(d=> d.tecnico !== canonical).map(d=> d.id);
+    plan.push({
+      canonKey:key, canonical,
+      variantes: variantNames.map(n=> ({nome:n, qtd:g.counts[n]})).sort((a,b)=> b.qtd-a.qtd),
+      docIdsParaAtualizar,
+    });
+  });
+  return plan;
+}
+
+async function applyMergePlan(plan){
+  const allUpdates = [];
+  plan.forEach(item=> item.docIdsParaAtualizar.forEach(id=> allUpdates.push({id, tecnico:item.canonical})));
+  const chunks = [];
+  for(let i=0;i<allUpdates.length;i+=400) chunks.push(allUpdates.slice(i,i+400));
+  for(const chunk of chunks){
+    const batch = db.batch();
+    chunk.forEach(u=> batch.update(db.collection(COLLECTION).doc(u.id), {tecnico:u.tecnico}));
+    await batch.commit();
+  }
+  return allUpdates.length;
+}
+
+const mergeStatusEl = document.getElementById("merge-status");
+const mergePreviewBox = document.getElementById("merge-preview-box");
+
+document.getElementById("btn-merge-preview").addEventListener("click", async ()=>{
+  mergeStatusEl.className = "upload-status";
+  mergeStatusEl.textContent = "Verificando cadastros...";
+  mergePreviewBox.style.display = "none";
+  mergePreviewBox.innerHTML = "";
+
+  let plan;
+  try{ plan = await buildMergePlan(); }
+  catch(err){ mergeStatusEl.className="upload-status err"; mergeStatusEl.textContent = "Erro ao verificar: "+err.message; return; }
+
+  if(plan.length === 0){
+    mergeStatusEl.className = "upload-status ok";
+    mergeStatusEl.textContent = "Nenhum técnico duplicado encontrado. Tudo certo.";
+    return;
+  }
+
+  const totalDocs = plan.reduce((acc,p)=> acc + p.docIdsParaAtualizar.length, 0);
+  mergeStatusEl.textContent = `Encontrei ${plan.length} técnico(s) com grafia duplicada, afetando ${totalDocs} atendimento(s).`;
+
+  mergePreviewBox.style.display = "block";
+  mergePreviewBox.innerHTML =
+    plan.map(p=>
+      `<div style="margin-bottom:10px;">
+        <b>${p.canonical}</b> ← ${p.variantes.map(v=> `"${v.nome}" (${v.qtd})`).join(", ")}
+      </div>`
+    ).join("") +
+    `<button class="primary-btn" id="btn-merge-confirm" type="button" style="margin-top:8px;">Confirmar mesclagem</button>`;
+
+  document.getElementById("btn-merge-confirm").addEventListener("click", async ()=>{
+    mergeStatusEl.className = "upload-status";
+    mergeStatusEl.textContent = "Mesclando...";
+    try{
+      const n = await applyMergePlan(plan);
+      mergeStatusEl.className = "upload-status ok";
+      mergeStatusEl.textContent = `Pronto! ${n} atendimento(s) atualizado(s) para o nome correto do técnico.`;
+      mergePreviewBox.style.display = "none";
+      mergePreviewBox.innerHTML = "";
+      loadDashboard();
+      loadTechList();
+    }catch(err){
+      mergeStatusEl.className = "upload-status err";
+      mergeStatusEl.textContent = "Erro ao mesclar: "+err.message;
+    }
   });
 });
 
