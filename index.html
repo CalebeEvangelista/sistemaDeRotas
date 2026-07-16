@@ -1452,11 +1452,18 @@ async function handleUploadedFile(file){
     });
   });
 
-  // Regra de ranking: dentro da fila de cada técnico, mostra primeiro quem
-  // é de Manhã, depois Tarde, depois Noite — mantendo a ordem da planilha
-  // dentro de cada turno (ordenação estável).
+  // Regra de ranking: o objetivo é o técnico atender o MÁXIMO de casas
+  // possível no dia — então bairro manda primeiro (agrupa geograficamente,
+  // reduz deslocamento entre atendimentos). Dentro do mesmo bairro, ordena
+  // por turno (Manhã → Tarde → Noite) só como desempate, pra ainda dar uma
+  // prioridade a quem tem janela de manhã quando o bairro é o mesmo. Empate
+  // final (mesmo bairro + mesmo turno), mantém a ordem da planilha.
   const TURNO_RANK = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
-  parsed.sort((a,b)=> (TURNO_RANK[a.turno]??9) - (TURNO_RANK[b.turno]??9));
+  parsed.sort((a,b)=>{
+    const bComp = (a.bairro||"").localeCompare(b.bairro||"", "pt-BR");
+    if(bComp !== 0) return bComp;
+    return (TURNO_RANK[a.turno]??9) - (TURNO_RANK[b.turno]??9);
+  });
 
   // mantém a ordem exata em que as linhas vieram na planilha (por técnico)
   const orderCounter = {};
