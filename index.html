@@ -120,6 +120,7 @@
   .turno-Manhã{ background:#F4DDA0; color:#5C4406; }
   .turno-Tarde{ background:#BFD9F2; color:#123A63; }
   .turno-Noite{ background:#D6C6EE; color:#3F2464; }
+  .turno-sem-horario{ background:#E3DED2; color:#5B5646; }
 
   .perf{ height:1px; background-image: repeating-linear-gradient(90deg, var(--line) 0 8px, transparent 8px 16px); }
 
@@ -803,7 +804,7 @@ function buildLembreteItem(item){
     <div class="lembrete-header">
       <div class="lh-info">
         <div class="lh-name">Nº ${String(item.ordem).padStart(3,"0")} · ${item.nome}</div>
-        <div class="lh-sub"><span class="ticket-turno turno-${item.turno}">${item.turno}</span> ${item.bairro||"—"} · ${item.jornada||"—"}</div>
+        <div class="lh-sub"><span class="ticket-turno turno-${turnoClass(item.turno)}">${item.turno}</span> ${item.bairro||"—"} · ${item.jornada||"—"}</div>
       </div>
       <div class="lh-chevron">▾ ver detalhes</div>
     </div>
@@ -1232,10 +1233,20 @@ function parseStartMinutes(jornada){
   return 9999;
 }
 function turnoFromMinutes(mins){
+  // horário que não deu pra entender (texto fora de padrão, célula vazia
+  // etc) não pode virar "Noite" por acidente — isso empurrava gente sem
+  // horário legível pro fim da fila escondido junto com quem é de noite
+  // de verdade. Agora fica numa categoria própria, separada.
+  if(mins === 9999) return "Sem horário";
   const h = Math.floor(mins/60);
   if(h < 12) return "Manhã";
   if(h < 18) return "Tarde";
   return "Noite";
+}
+// nome de classe CSS não pode ter espaço/acento problemático — usa isso só
+// pra montar o atributo class=, o texto exibido continua "Sem horário".
+function turnoClass(t){
+  return t === "Sem horário" ? "sem-horario" : t;
 }
 // Quando o Excel/Sheets "reconhece" uma célula como horário (ex: alguém digitou
 // só "15:40" e o programa converteu a célula inteira pro formato Hora), o
@@ -1428,8 +1439,16 @@ async function handleUploadedFile(file){
     if(clsCep.status === "invalido") nCepInvalido++;
     if(clsCep.status === "fora_area") nCepForaArea++;
 
+    // O bairro que vem digitado à mão na planilha (cada pessoa escreveu do
+    // seu jeito: "Castelo Branco", "castelo branco", "Castelo Branco perto
+    // da praça"...) NÃO pode ser a chave usada pra agrupar/ordenar — duas
+    // casas do mesmo bairro escrito de forma diferente nunca ficavam juntas
+    // na fila. Por isso agora prioriza o nome do bairro derivado do CEP
+    // (vocabulário fechado, sempre escrito igual — é o que garante que
+    // "Castelo Branco" e "Castelo Branco" sejam a mesma string sempre) e só
+    // cai pro texto digitado quando o CEP não bate com nenhuma zona conhecida.
     const zoneBairro = clsCep.p5 && ZONE_INFO[clsCep.p5] ? ZONE_INFO[clsCep.p5].bairro : null;
-    const bairro = (cell.bairroRaw && String(cell.bairroRaw).trim()) || zoneBairro || "Bairro não informado";
+    const bairro = zoneBairro || (cell.bairroRaw && String(cell.bairroRaw).trim()) || "Bairro não informado";
     const cepDisplay = clsCep.cep ? clsCep.cep.slice(0,5)+"-"+clsCep.cep.slice(5) : (cell.cep? String(cell.cep).trim() : "");
 
     const mins = parseStartMinutes(cell.jornada);
@@ -1452,17 +1471,16 @@ async function handleUploadedFile(file){
     });
   });
 
-  // Regra de ranking: o objetivo é o técnico atender o MÁXIMO de casas
-  // possível no dia — então bairro manda primeiro (agrupa geograficamente,
-  // reduz deslocamento entre atendimentos). Dentro do mesmo bairro, ordena
-  // por turno (Manhã → Tarde → Noite) só como desempate, pra ainda dar uma
-  // prioridade a quem tem janela de manhã quando o bairro é o mesmo. Empate
-  // final (mesmo bairro + mesmo turno), mantém a ordem da planilha.
-  const TURNO_RANK = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
+  // Regra de ranking: o TURNO (a tag Manhã/Tarde/Noite) é quem manda na
+  // posição geral da fila — não o horário exato digitado, que vem cheio de
+  // formatos diferentes e às vezes ilegível. Dentro de cada turno, agrupa
+  // por bairro, pra reduzir deslocamento e render mais casas visitadas.
+  // Empate final (mesmo turno + mesmo bairro), mantém a ordem da planilha.
+  const TURNO_RANK = { "Manhã": 0, "Tarde": 1, "Noite": 2, "Sem horário": 3 };
   parsed.sort((a,b)=>{
-    const bComp = (a.bairro||"").localeCompare(b.bairro||"", "pt-BR");
-    if(bComp !== 0) return bComp;
-    return (TURNO_RANK[a.turno]??9) - (TURNO_RANK[b.turno]??9);
+    const t = (TURNO_RANK[a.turno]??9) - (TURNO_RANK[b.turno]??9);
+    if(t !== 0) return t;
+    return (a.bairro||"").localeCompare(b.bairro||"", "pt-BR");
   });
 
   // mantém a ordem exata em que as linhas vieram na planilha (por técnico)
