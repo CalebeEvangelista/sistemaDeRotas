@@ -815,6 +815,7 @@ function buildLembreteItem(item){
       ${item.obs ? `<div class="field"><span class="label">Observações</span><span class="value">${item.obs}</span></div>` : ""}
       <div class="tags">
         ${item.produto ? `<span class="tag">Produto: ${item.produto}</span>` : ""}
+        ${item.operacao ? `<span class="tag">Operação: ${item.operacao}</span>` : ""}
         <span class="tag">Mat. ${item.matricula}</span>
       </div>
       <div class="contact-row">
@@ -1180,6 +1181,7 @@ const HEADER_MAP = {
   cidade: ["CIDADE"],
   cep: ["CEP"],
   produto: ["PRODUTO CLIENTE"],
+  operacao: ["QUAL É SUA OPERAÇÃO", "QUAL E A SUA OPERAÇÃO", "OPERACAO", "OPERAÇÃO"],
   obs: ["OBSERVAÇÕES:", "OBSERVACOES:", "OBSERVAÇÕES", "OBSERVACOES"],
   tecnico: ["TÉCNICO DESIGNADO", "TECNICO DESIGNADO", "TÉCNICO", "TECNICO", "TÉCNICO RESPONSÁVEL", "TECNICO RESPONSAVEL"],
 };
@@ -1407,7 +1409,7 @@ async function handleUploadedFile(file){
       telefone2: get("telefone2"), jornada: get("jornada"), endereco: get("endereco"),
       numero: get("numero"), bairroRaw: get("bairro"), complemento: get("complemento"),
       referencia: get("referencia"), cidade: get("cidade") || "Campina Grande",
-      cep: get("cep"), produto: get("produto"), obs: get("obs"), tecnicoRaw: get("tecnico"),
+      cep: get("cep"), produto: get("produto"), operacao: get("operacao"), obs: get("obs"), tecnicoRaw: get("tecnico"),
     };
     if(!cell.matricula || !cell.nome || !cell.endereco){ nSemDados++; return; }
 
@@ -1444,6 +1446,7 @@ async function handleUploadedFile(file){
       referencia: cell.referencia ? String(cell.referencia).trim() : "",
       bairro, cidade: String(cell.cidade).trim(), cep: cepDisplay, cepStatus: clsCep.status,
       produto: cell.produto ? String(cell.produto).trim() : "",
+      operacao: cell.operacao ? String(cell.operacao).trim() : "",
       obs: cell.obs ? String(cell.obs).trim() : "",
       turno, mins, tecnico,
     });
