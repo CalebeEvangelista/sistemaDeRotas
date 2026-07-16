@@ -904,6 +904,7 @@ function openActionModal(item, action){
     modalText.textContent = "Por que não foi possível atender agora?";
     addModalOption("Cliente não respondeu", null, ()=> finalizeAction(item, "nao_atendido", "Cliente não respondeu"));
     addModalOption("Não consegui falar com o cliente", null, ()=> finalizeAction(item, "nao_atendido", "Não consegui falar com o cliente"));
+    addModalOption("Atendido por outro técnico", null, ()=> finalizeAction(item, "nao_atendido", "Atendido por outro técnico"));
     addModalOption("Outro problema", null, ()=> finalizeAction(item, "nao_atendido", "Outro problema"));
   }
   else if(action === "recusou"){
