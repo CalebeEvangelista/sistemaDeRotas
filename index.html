@@ -270,7 +270,7 @@
   .upload-status.err{ color:var(--red); }
 
   .filter-row{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-  .filter-row select{
+  .filter-row select, .filter-row input[type="date"]{
     padding:9px 10px; border-radius:10px; border:1px solid rgba(250,246,236,.18); background:var(--navy-2); color:var(--paper); font-size:12.5px;
   }
 
@@ -528,6 +528,7 @@
     <div class="dash-section">
       <h3>Atendimentos do dia</h3>
       <div class="filter-row">
+        <input type="date" id="filter-data">
         <select id="filter-tecnico">
           <option value="">Todos os técnicos</option>
         </select>
@@ -539,6 +540,10 @@
           <option value="recusado">Recusado</option>
         </select>
       </div>
+      <div class="t2" id="filter-data-hint" style="margin:6px 0 0;">Sem data selecionada: mostra tudo, de qualquer dia. Selecionando uma data, mostra só quem teve o status alterado <b>naquele dia</b> (quem ainda tá "Aguardando" não entra, porque nunca foi mexido).</div>
+      <button class="primary-btn" id="btn-gerar-resumo" type="button" style="margin-top:10px;">Gerar resumo do dia</button>
+      <textarea id="resumo-dia-output" readonly style="display:none;width:100%;margin-top:10px;min-height:160px;font-family:inherit;font-size:14px;padding:10px;border-radius:8px;background:var(--navy-2);color:var(--paper);border:1px solid rgba(250,246,236,.18);"></textarea>
+      <button class="primary-btn" id="btn-copiar-resumo" type="button" style="display:none;margin-top:8px;">Copiar resumo</button>
       <div class="appt-table" id="appt-table">
         <div class="empty-state"><div class="spinner"></div></div>
       </div>
@@ -602,6 +607,7 @@ function sortTechNames(names){
 let state = { tech:null, queue:[], handled:[], expandedId:null };
 let isAdmin = false;
 let dashUnsub = null;
+let dashDateFilteredRows = []; // linhas já filtradas pela data selecionada — usado pelo "Gerar resumo do dia"
 
 /* --------------------------------------------------------------------
    4) NAVEGAÇÃO ENTRE TELAS
@@ -1003,6 +1009,7 @@ function initDashboard(){
 
 document.getElementById("filter-tecnico").addEventListener("change", loadDashboard);
 document.getElementById("filter-status").addEventListener("change", loadDashboard);
+document.getElementById("filter-data").addEventListener("change", loadDashboard);
 
 async function loadDashboard(){
   if(dashUnsub){ dashUnsub(); dashUnsub = null; }
@@ -1019,7 +1026,25 @@ async function loadDashboard(){
     });
 }
 
-function renderDashboard(rows){
+// compara a data (yyyy-mm-dd, horário local) em que o status foi alterado
+// (atualizadoEm) com a data escolhida no filtro. Sem data escolhida = mostra tudo.
+// Quem nunca teve o status alterado (ainda "Aguardando") não tem atualizadoEm,
+// então não entra quando um dia específico é selecionado.
+function timestampMatchesDate(ts, dateStr){
+  if(!dateStr) return true;
+  if(!ts || typeof ts.toDate !== "function") return false;
+  const d = ts.toDate();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}` === dateStr;
+}
+
+function renderDashboard(allRows){
+  const fData = document.getElementById("filter-data").value;
+  const rows = allRows.filter(r=> timestampMatchesDate(r.atualizadoEm, fData));
+  dashDateFilteredRows = rows;
+
   const kAll=rows.length, kOk=rows.filter(r=>r.status==="atendido").length,
         kWait=rows.filter(r=>r.status==="aguardando_atendimento").length,
         kNo=rows.filter(r=>r.status==="nao_atendido").length,
@@ -1087,6 +1112,56 @@ function renderDashboard(rows){
     tableWrap.appendChild(el);
   });
 }
+
+// Monta o texto do resumo do dia, um bloco por técnico, no formato:
+// Nome
+// • Produtivos: X
+// • Improdutivos: Y
+// • Pulados: Z
+// Mapeamento pros status internos do app:
+//   Produtivos   = "Atendido"      (confirmou que foi e atendeu)
+//   Improdutivos = "Recusado"      (foi, mas o cliente recusou o atendimento)
+//   Pulados      = "Não atendido"  (não deu pra atender agora, ficou pra depois)
+// Sempre considera TODOS os técnicos da data filtrada, independente do que
+// tiver selecionado nos filtros de técnico/status da tabela — o resumo é
+// sempre "geral, de cada um".
+function gerarResumoDia(rows){
+  const techs = sortTechNames([...new Set(rows.map(r=>r.tecnico).filter(Boolean))]);
+  if(techs.length === 0) return "Nenhum atendimento com status alterado nessa data.";
+  return techs.map(t=>{
+    const trows = rows.filter(r=>r.tecnico===t);
+    const produtivos = trows.filter(r=>r.status==="atendido").length;
+    const improdutivos = trows.filter(r=>r.status==="recusado").length;
+    const pulados = trows.filter(r=>r.status==="nao_atendido").length;
+    return `${t}\n• Produtivos: ${produtivos}\n• Improdutivos: ${improdutivos}\n• Pulados: ${pulados}`;
+  }).join("\n\n");
+}
+
+document.getElementById("btn-gerar-resumo").addEventListener("click", ()=>{
+  const fData = document.getElementById("filter-data").value;
+  const texto = (fData ? `Resumo do dia ${fData.split("-").reverse().join("/")}\n\n` : `Resumo geral (todas as datas)\n\n`)
+    + gerarResumoDia(dashDateFilteredRows);
+  const out = document.getElementById("resumo-dia-output");
+  out.value = texto;
+  out.style.display = "block";
+  document.getElementById("btn-copiar-resumo").style.display = "inline-block";
+});
+
+document.getElementById("btn-copiar-resumo").addEventListener("click", async ()=>{
+  const out = document.getElementById("resumo-dia-output");
+  const btn = document.getElementById("btn-copiar-resumo");
+  try{
+    await navigator.clipboard.writeText(out.value);
+  }catch(err){
+    out.removeAttribute("readonly");
+    out.select();
+    document.execCommand("copy");
+    out.setAttribute("readonly","readonly");
+  }
+  const original = btn.textContent;
+  btn.textContent = "Copiado!";
+  setTimeout(()=> btn.textContent = original, 1500);
+});
 
 /* --------------------------------------------------------------------
    9) UPLOAD E PROCESSAMENTO DE PLANILHA (.xlsx) — feito no navegador
